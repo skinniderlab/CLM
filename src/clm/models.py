@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from rdkit.Chem import Descriptors
+from clm.functions import clean_mol
 
 
 class RNN(nn.Module):
@@ -485,3 +487,240 @@ class Transformer(nn.Module):
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+
+class MassConditionalRNN(nn.Module):
+    def __init__(
+        self,
+        vocabulary,
+        rnn_type="LSTM",
+        n_layers=3,
+        embedding_size=128,
+        hidden_size=512,
+        dropout=0,
+        gamma=-1,
+        mass_emb=True,
+        mass_emb_l=False,
+        mass_dec=False,
+        mass_dec_l=False,
+        mass_h=False,
+    ):
+        super(MassConditionalRNN, self).__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.vocabulary = vocabulary
+        self.vocabulary_size = len(self.vocabulary)
+        self.gamma = gamma
+        self.mass_emb = mass_emb
+        self.mass_emb_l = mass_emb_l
+        self.mass_dec = mass_dec
+        self.mass_dec_l = mass_dec_l
+        self.mass_h = mass_h
+        # set up input/output sizes for RNN
+        self.embedding_size = embedding_size
+        self.hidden_size = hidden_size
+        rnn_input_size = (
+            self.embedding_size if self.mass_emb_l else int(self.mass_emb)
+        ) + self.embedding_size
+        rnn_output_size = (
+            self.embedding_size if self.mass_dec_l else int(self.mass_dec)
+        ) + self.hidden_size
+
+        self.padding_idx = self.vocabulary.dictionary["<PAD>"]
+        padding_t = torch.tensor(self.padding_idx).to(self.device)
+        self.embedding = nn.Embedding(
+            self.vocabulary_size, self.embedding_size, padding_idx=padding_t
+        )
+        self.n_layers = n_layers
+        self.rnn_type = rnn_type
+        self.dropout = dropout
+        self.rnn = getattr(nn, self.rnn_type)(
+            input_size=rnn_input_size,
+            hidden_size=self.hidden_size,
+            num_layers=self.n_layers,
+            dropout=self.dropout,
+        )
+        self.dropout = nn.Dropout(dropout)
+        self.decoder = nn.Linear(rnn_output_size, self.vocabulary_size)
+        self.loss_fn = nn.CrossEntropyLoss(
+            ignore_index=self.padding_idx, reduction="none"
+        )
+        # instantiate hidden states
+        if self.mass_h:
+            self.mass_to_hs = []
+            self.mass_to_cs = []
+            for layer in range(self.n_layers):
+                self.mass_to_hs.append(nn.Linear(1, self.hidden_size))
+                self.mass_to_cs.append(nn.Linear(1, self.hidden_size))
+            # mass_to_h compatibility with cuda
+            self.mass_to_hs = nn.ModuleList(self.mass_to_hs)
+            self.mass_to_cs = nn.ModuleList(self.mass_to_cs)
+        # full mass embedding instead of 1d scalar
+        if self.mass_emb_l:
+            self.mass_to_emb = nn.Linear(1, self.embedding_size)
+        # same for decoder
+        if self.mass_dec_l:
+            self.mass_to_dec = nn.Linear(1, self.embedding_size)
+        # self.init_weights()
+        if torch.cuda.is_available():
+            self.cuda()
+
+    def forward(self, inputs, hidden):
+        return False
+
+    def loss(self, batch):
+        # extract the elements of a single minibatch
+        (padded, lengths, masses) = batch
+        # move to the gpu
+        padded, masses = padded.to(self.device), masses.to(self.device)
+
+        # embed the padded sequence, along with the masses
+        embedded = self.embedding(padded)
+        # -> embedded: max_len x batch_size x emb_size
+        if self.dropout.p > 0:
+            embedded = self.dropout(embedded)
+        # cat masses along dimension of emb_size
+        # mass repeating: max_len x batch_size x 1
+        masses_repeating = masses.repeat(max(lengths), 1).unsqueeze(dim=2)
+        if self.mass_emb_l:
+            mass_embedding = self.mass_to_emb(masses_repeating.float())
+            # mass_embedding: max_len x batch_size x emb_size
+            embedded = torch.cat([embedded, mass_embedding], axis=2).float()
+        elif self.mass_emb:
+            embedded = torch.cat([embedded, masses_repeating], axis=2).float()
+        # -> embedded: max_len x batch_size x emb_size + 1
+
+        # now pack the embedded sequences
+        packed = pack_padded_sequence(embedded, lengths, enforce_sorted=False)
+        # optionally, instantiate h_0/c_0 from mass
+        if self.mass_h:
+            h_0, c_0 = self.init_hidden(masses)
+            # states: num_layers x batch_size x hidden_size
+            packed_output, hidden = self.rnn(packed, (h_0, c_0))
+        else:
+            packed_output, hidden = self.rnn(packed)
+        # unpack the output
+        padded_output, output_lens = pad_packed_sequence(packed_output)
+        # -> packed_output: max_len x batch_size x hidden_size
+
+        # run LSTM output through decoder
+        if self.dropout.p > 0:
+            padded_output = self.dropout(padded_output)
+        # cat masses along dimension of emb_size
+        if self.mass_dec_l:
+            mass_embedding = self.mass_to_dec(masses_repeating.float())
+            padded_output = torch.cat([padded_output, mass_embedding], axis=2).float()
+        elif self.mass_dec:
+            padded_output = torch.cat([padded_output, masses_repeating], axis=2).float()
+        # -> padded_output: max_len x batch_size x hidden_size + 1
+        decoded = self.decoder(padded_output)
+        # -> decoded: max_len x batch_size x vocab_len
+
+        # finally, calculate loss
+        loss = 0.0
+        max_len = max(lengths)
+        targets = padded[1:, :]
+        for char_idx in range(max_len - 1):
+            loss += self.loss_fn(decoded[char_idx], targets[char_idx])
+
+        loss = loss.mean()
+
+        # optionally, also calculate difference from input masses
+        if self.gamma > 0:
+            smiles = self.sample(masses)
+            calc_masses = []
+            for sm in smiles:
+                try:
+                    mol = clean_mol(sm)
+                    mass = Descriptors.ExactMolWt(mol)
+                    calc_masses.append(mass)
+                except ValueError:
+                    calc_masses.append(0)
+
+            calc_masses = torch.Tensor(calc_masses).to(self.device)
+            mass_loss = masses - calc_masses
+            mass_loss = mass_loss.mean()
+
+            loss = loss + self.gamma * mass_loss
+
+        return loss
+
+    def sample(self, masses, max_len=250, return_smiles=True, return_losses=False):
+        # get start/stop tokens
+        start_token = self.vocabulary.dictionary["SOS"]
+        stop_token = self.vocabulary.dictionary["EOS"]
+        # move masses to device
+        masses = masses.to(self.device)
+        # create start token tensor
+        n_sequences = len(masses)
+        inputs = (
+            torch.empty(n_sequences)
+            .fill_(start_token)
+            .long()
+            .view(1, n_sequences)
+            .to(self.device)
+        )
+        # initialize hidden state
+        if self.mass_h:
+            hidden = self.init_hidden(
+                masses
+            )  # Initializing hidden state based on number of layers
+        else:
+            hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+                self.device
+            ), torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(self.device)
+
+        # repeat masses
+        masses = masses.view(1, n_sequences, 1)
+        # sample sequences
+        finished = torch.zeros(n_sequences).byte().to(self.device)
+        sequences = []
+        for step in range(max_len):
+            embedded = self.embedding(inputs)
+            if self.mass_emb_l:
+                mass_embedding = self.mass_to_emb(masses.float())
+                embedded = torch.cat([embedded, mass_embedding], axis=2).float()
+            elif self.mass_emb:
+                embedded = torch.cat([embedded, masses], axis=2).float()
+
+            output, hidden = self.rnn(embedded, hidden)
+            if self.mass_dec_l:
+                mass_embedding = self.mass_to_dec(masses.float())
+                output = torch.cat([output, mass_embedding], axis=2).float()
+            elif self.mass_dec:
+                output = torch.cat([output, masses], axis=2).float()
+
+            logits = self.decoder(output)
+            prob = F.softmax(logits, dim=2)
+            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(1, -1)
+            sequences.append(inputs.view(-1, 1))
+            # track whether sampling is done for all molecules
+            finished = torch.ge(finished + (inputs == stop_token), 1)
+            if torch.prod(finished) == 1:
+                break
+
+        # concatenate sequences and decode
+        seqs = torch.cat(sequences, 1)
+        if return_smiles:
+            smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            if return_losses:
+                return smiles, [0] * len(smiles)
+            else:
+                return smiles
+        else:
+            assert not return_losses
+            return sequences
+
+    def init_hidden(self, masses):
+        h_0s = []
+        c_0s = []
+        for layer in range(self.n_layers):
+            mass_to_h = self.mass_to_hs[layer]
+            mass_to_c = self.mass_to_cs[layer]
+            h_0 = mass_to_h(masses.unsqueeze(1).float())
+            c_0 = mass_to_c(masses.unsqueeze(1).float())
+            h_0s.append(h_0)
+            c_0s.append(c_0)
+        # stack into correct dimensionality
+        h_0 = torch.stack(h_0s)
+        c_0 = torch.stack(c_0s)
+        return h_0, c_0

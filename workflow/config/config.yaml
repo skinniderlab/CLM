@@ -34,6 +34,7 @@ model_params:
   log_every_steps: 100
   log_every_epochs: 1
   sample_mols: 10000000
+  conditional_rnn: False
 metrics:
   - freq-sum
   - freq-avg

@@ -9,7 +9,7 @@ from tqdm import tqdm
 from rdkit import rdBase
 
 from clm.datasets import SmilesDataset, SelfiesDataset
-from clm.models import RNN
+from clm.models import RNN, MassConditionalRNN
 from clm.loggers import EarlyStopping, track_loss, print_update
 from clm.functions import read_file, write_smiles
 
@@ -93,15 +93,24 @@ def add_args(parser):
         "--loss_file", type=str, help="File path to save the training loss data"
     )
 
+    parser.add_argument(
+        "--conditional_rnn",
+        action="store_true",
+    )
+
     return parser
 
 
-def load_dataset(representation, input_file, vocab_file):
+def load_dataset(representation, input_file, vocab_file, conditional_rnn):
     inputs = read_file(input_file, smile_only=True)
     if representation == "SELFIES":
-        return SelfiesDataset(selfies=inputs, vocab_file=vocab_file)
+        return SelfiesDataset(
+            selfies=inputs, vocab_file=vocab_file, conditional_rnn=conditional_rnn
+        )
     else:
-        return SmilesDataset(smiles=inputs, vocab_file=vocab_file)
+        return SmilesDataset(
+            smiles=inputs, vocab_file=vocab_file, conditional_rnn=conditional_rnn
+        )
 
 
 def training_step(batch, model, optim, dataset, batch_size):
@@ -143,20 +152,32 @@ def train_models_RNN(
     smiles_file,
     model_file,
     loss_file,
+    conditional_rnn=False,
 ):
 
     os.makedirs(os.path.dirname(os.path.abspath(model_file)), exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(loss_file)), exist_ok=True)
 
-    dataset = load_dataset(representation, input_file, vocab_file)
-    model = RNN(
-        dataset.vocabulary,
-        rnn_type=rnn_type,
-        n_layers=n_layers,
-        embedding_size=embedding_size,
-        hidden_size=hidden_size,
-        dropout=dropout,
-    )
+    dataset = load_dataset(representation, input_file, vocab_file, conditional_rnn)
+    if conditional_rnn:
+
+        model = MassConditionalRNN(
+            dataset.vocabulary,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+        )
+    else:
+        model = RNN(
+            dataset.vocabulary,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+        )
 
     logger.info(dataset.vocabulary.dictionary)
 
@@ -181,10 +202,20 @@ def train_models_RNN(
                     loop_count,
                     value=[loss.item(), validation_loss.item()],
                 )
-                print_update(
-                    model, epoch, batch_no + 1, loss.item(), validation_loss.item()
-                )
-
+                if conditional_rnn:
+                    print_update(
+                        model,
+                        epoch,
+                        batch_no + 1,
+                        loss.item(),
+                        validation_loss.item(),
+                        batch_size,
+                        batch[2],
+                    )
+                else:
+                    print_update(
+                        model, epoch, batch_no + 1, loss.item(), validation_loss.item()
+                    )
             early_stop(validation_loss.item(), model, model_file, loop_count)
 
             if early_stop.stop:
@@ -229,4 +260,5 @@ def main(args):
         smiles_file=args.smiles_file,
         model_file=args.model_file,
         loss_file=args.loss_file,
+        conditional_rnn=args.conditional_rnn,
     )

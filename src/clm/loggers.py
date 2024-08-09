@@ -93,7 +93,7 @@ def print_update(
 
     # sample a batch of SMILES and print them
     if masses is not None:
-        masses = torch.tensor(masses)
+        # masses = torch.tensor(masses) # Masses are already a tensor
         smiles = model.sample(masses, return_smiles=True)
     else:
         smiles = model.sample(n_smiles, return_smiles=True)

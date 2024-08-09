@@ -22,6 +22,7 @@ model_params:
   log_every_steps: 100
   log_every_epochs: 1
   sample_mols: 100
+  conditional_rnn: False
 metrics:
   - freq-avg
 min_tc: 0
