@@ -145,7 +145,12 @@ def get_column_idx(input_file, column_name):
 
 
 def read_file(
-    smiles_file, max_lines=None, smile_only=False, stream=False, randomize=False
+    smiles_file,
+    max_lines=None,
+    smile_only=False,
+    stream=False,
+    randomize=False,
+    training_descriptors=False,
 ):
     """
     Read a line-delimited file of SMILES strings, optionally limiting the number
@@ -167,6 +172,7 @@ def read_file(
         input_file,
         max_lines=None,
         smile_only=False,
+        training_descriptors=False,
     ):
         if str(input_file).endswith(".gz"):
             open_fn = gzip.open
@@ -181,6 +187,9 @@ def read_file(
             first_line = f.readline()
             first_line_tokens = next(csv.reader([first_line]))
             is_csv = "smiles" in first_line_tokens
+            # inchikey_idx = None
+            # if training_descriptors:
+            #     inchikey_idx = first_line_tokens.index("inchikey") if "inchikey" in first_line_tokens else None
 
             if is_csv:
                 smile_idx = first_line_tokens.index("smiles")
@@ -189,6 +198,9 @@ def read_file(
                 f.seek(0)  # go to beginning of file
 
             for line in f:
+                # if training_descriptors:
+                #     count+=1
+                #     continue
                 tokens = next(csv.reader([line]))
                 if is_csv and smile_only:
                     yield tokens[smile_idx]
@@ -200,13 +212,18 @@ def read_file(
 
     if randomize:
         # if randomizing, we have to consume the generator and shuffle it
-        gen = _read_file(smiles_file, max_lines=None, smile_only=smile_only)
+        gen = _read_file(
+            smiles_file,
+            max_lines=None,
+            smile_only=smile_only,
+            training_descriptors=training_descriptors,
+        )
         data = np.array(list(gen))
         np.random.shuffle(data)
         data = data[:max_lines]
         return iter(data) if stream else data
     else:
-        gen = _read_file(smiles_file, max_lines, smile_only)
+        gen = _read_file(smiles_file, max_lines, smile_only, training_descriptors)
         return gen if stream else np.array(list(gen))
 
 

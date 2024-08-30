@@ -27,6 +27,7 @@ dependencies = [
     "scipy==1.11.1",
     "selfies",
     "snakemake",
+    "tensorboard",
     "torch",
     "tqdm",
     "seaborn",

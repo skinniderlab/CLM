@@ -1,0 +1,7 @@
+descriptor,min_val,max_val
+Molecular Weight,116.08373,1891.2598
+Wildman– Crippen partition coefficient (LogP),-5.3806,12.6058
+Topological polar surface area (TPSA),0.0,754.84
+Number of Hydrogen bonds acceptors (HBA),0.0,44.0
+Number of Hydrogen bonds donors (HBD),0.0,26.0
+Drug-likeness score (QED),0.009980091,0.92537135

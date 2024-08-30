@@ -162,6 +162,8 @@ rule train_models_RNN:
     output:
         model_file=PATHS['model_file'],
         loss_file=PATHS['loss_file']
+    params:
+        minmax_descriptor_file=PATHS['minmax_file']
     resources:
         mem_mb=32000,
         runtime=4320,
@@ -186,7 +188,12 @@ rule train_models_RNN:
         '--vocab_file {input.vocab_file} '
         '--model_file {output.model_file} '
         '--loss_file {output.loss_file} '
-
+        f'{"--conditional_emb" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_emb"]  else ""} '
+        f'{"--conditional_emb_l" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_emb_l"] else ""} '
+        f'{"--conditional_dec" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_dec"] else ""} '
+        f'{"--conditional_dec_l" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_dec_l"] else ""} '
+        f'{"--conditional_h" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_h"] else ""} '
+        f'{"--minmax_descriptor_file {params.minmax_descriptor_file}" if config["model_params"]["conditional_rnn"] else ""} '
 
 rule sample_molecules_RNN:
     """
@@ -199,6 +206,8 @@ rule sample_molecules_RNN:
         vocab_file = PATHS['vocab_file']
     output:
         output_file = PATHS['input_file']
+    params:
+        minmax_descriptor_file = PATHS['minmax_file']
     resources:
         mem_mb=12000,
         runtime=15+MODEL_PARAMS["sample_mols"]//10000,
@@ -217,6 +226,14 @@ rule sample_molecules_RNN:
         '--vocab_file {input.vocab_file} '
         '--model_file {input.model_file} '
         '--output_file {output.output_file} '
+        f'{"--conditional_emb" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_emb"]  else ""} '
+        f'{"--conditional_emb_l" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_emb_l"] else ""} '
+        f'{"--conditional_dec" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_dec"] else ""} '
+        f'{"--conditional_dec_l" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_dec_l"] else ""} '
+        f'{"--conditional_h" if config["model_params"]["conditional_rnn"] and config["model_params"]["conditional_h"] else ""} '
+        f'{"--conditional_rnn" if config["model_params"]["conditional_rnn"] else ""} '
+        f'{"--minmax_descriptor_file {params.minmax_descriptor_file}" if config["model_params"]["conditional_rnn"] else ""} '
+
 
 
 rule tabulate_molecules:
