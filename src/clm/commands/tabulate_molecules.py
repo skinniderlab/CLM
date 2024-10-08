@@ -57,9 +57,17 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
         except ValueError:
             invalid_smiles[smile] += 1
         else:
+            canonical_smile = Chem.MolToSmiles(mol, isomericSmiles=False)
+
+            # In very rare cases, `rdkit` is unable to convert the canonical
+            # smile back to a molecule. In such cases, we skip the molecule.
+            # This is an expensive check but it allows downstream steps to
+            # confidently assume that all canonical smiles are valid.
+            if Chem.MolFromSmiles(canonical_smile) is None:
+                continue
+
             mass = round(Descriptors.ExactMolWt(mol), 6)
             formula = rdMolDescriptors.CalcMolFormula(mol)
-            canonical_smile = Chem.MolToSmiles(mol, isomericSmiles=False)
             inchikey = Chem.inchi.MolToInchiKey(mol)
 
             if inchikey not in train_data:
