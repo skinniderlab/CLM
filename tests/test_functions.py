@@ -20,7 +20,10 @@ def test_read_file_5(dataset):
         dataset, max_lines=5, smile_only=False, stream=False, randomize=False
     )
     assert len(data) == 5
-    assert data[3] == "CS(=O)(=O)C=CCO"  # Line 4
+    assert (
+        data[3]
+        == "CS(=O)(=O)C=CCO,136.019415116,-0.4629999999999998,54.370000000000005,3,1,0.5583929367315621"
+    )  # Line 4
 
 
 def test_read_file_stream(dataset):
@@ -47,7 +50,10 @@ def test_read_file_5_randomize(dataset):
             dataset, max_lines=5, smile_only=False, stream=False, randomize=True
         )
         assert len(data) == 5
-        assert data[3] == "CC1(C)C=Cc2c(cc(CO)c(C(=O)O)c2O)O1"  # Line 517
+        assert (
+            data[3]
+            == "CC1(C)C=Cc2c(cc(CO)c(C(=O)O)c2O)O1,250.084123548,1.7669000000000001,86.99000000000001,4,3,0.7441750437909932"
+        )  # Line 517
 
 
 def test_read_file_stream_5_randomize(dataset):
@@ -61,7 +67,10 @@ def test_read_file_stream_5_randomize(dataset):
 
     data = list(data)
     assert len(data) == 5
-    assert data[3] == "CC1(C)C=Cc2c(cc(CO)c(C(=O)O)c2O)O1"  # Line 517
+    assert (
+        data[3]
+        == "CC1(C)C=Cc2c(cc(CO)c(C(=O)O)c2O)O1,250.084123548,1.7669000000000001,86.99000000000001,4,3,0.7441750437909932"
+    )  # Line 517
 
 
 def test_read_file_all_compressed(dataset_compressed):
@@ -72,7 +81,7 @@ def test_read_file_all_compressed(dataset_compressed):
         stream=False,
         randomize=False,
     )
-    assert len(data) == 2501
+    assert len(data) == 2502
 
 
 def test_read_file_5_compressed(dataset_compressed):
@@ -80,7 +89,10 @@ def test_read_file_5_compressed(dataset_compressed):
         dataset_compressed, max_lines=5, smile_only=False, stream=False, randomize=False
     )
     assert len(data) == 5
-    assert data[3] == "CS(=O)(=O)C=CCO"  # Line 4
+    assert (
+        data[3]
+        == "C[C@H](CO)[C@H]1OC(=O)C=C2C1=C[C@H]1OC(=O)[C@]3(C)[C@H]1[C@]2(C)[C@@H](Cl)[C@H](O)[C@@H]3O,398.113230756,0.3035999999999995,113.29000000000002,7,3,0.45267243432891674"
+    )
 
 
 def test_read_file_stream_compressed(dataset_compressed):
@@ -93,7 +105,7 @@ def test_read_file_stream_compressed(dataset_compressed):
     )
     with pytest.raises(TypeError):
         len(data)
-    assert len(list(data)) == 2501
+    assert len(list(data)) == 2502
 
 
 def test_read_file_stream_5_compressed(dataset_compressed):
@@ -115,7 +127,10 @@ def test_read_file_5_randomize_compressed(dataset_compressed):
             randomize=True,
         )
         assert len(data) == 5
-        assert data[3] == "CC1(C)C=Cc2c(cc(CO)c(C(=O)O)c2O)O1"  # Line 517
+        assert (
+            data[3]
+            == "C/C=C(/C)C(=O)O[C@H]1[C@H](O)[C@@]2(CO)[C@@H](CC1(C)C)C1=CC[C@@H]3[C@@]4(C)CC[C@H](O[C@@H]5O[C@H](C(=O)O)[C@@H](O[C@@H]6O[C@H](CO)[C@@H](O)[C@H](O)[C@H]6O)[C@H](O)[C@H]5O[C@@H]5O[C@H](CO)[C@@H](O)[C@H](O)[C@H]5O)[C@](C)(CO)[C@@H]4CC[C@@]3(C)[C@]1(C)C[C@H]2O,1088.5403389480002,-1.8918999999999868,381.9700000000001,22,14,0.04148566623268721"
+        )  # Line 517
 
 
 def test_read_file_stream_5_randomize_compressed(dataset_compressed):
@@ -133,7 +148,10 @@ def test_read_file_stream_5_randomize_compressed(dataset_compressed):
 
     data = list(data)
     assert len(data) == 5
-    assert data[3] == "CC1(C)C=Cc2c(cc(CO)c(C(=O)O)c2O)O1"  # Line 517
+    assert (
+        data[3]
+        == "C/C=C(/C)C(=O)O[C@H]1[C@H](O)[C@@]2(CO)[C@@H](CC1(C)C)C1=CC[C@@H]3[C@@]4(C)CC[C@H](O[C@@H]5O[C@H](C(=O)O)[C@@H](O[C@@H]6O[C@H](CO)[C@@H](O)[C@H](O)[C@H]6O)[C@H](O)[C@H]5O[C@@H]5O[C@H](CO)[C@@H](O)[C@H](O)[C@H]5O)[C@](C)(CO)[C@@H]4CC[C@@]3(C)[C@]1(C)C[C@H]2O,1088.5403389480002,-1.8918999999999868,381.9700000000001,22,14,0.04148566623268721"
+    )  # Line 517
 
 
 def test_write_csv_uncompressed_dataframe(tmp_path):
