@@ -4,6 +4,8 @@ import torch
 from rdkit import Chem
 from tqdm import tqdm
 
+from clm.functions import write_to_csv_file
+
 
 class EarlyStopping:
     """
@@ -20,7 +22,7 @@ class EarlyStopping:
     https://github.com/fastai/fastai/blob/master/courses/dl2/imdb_scripts/finetune_lm.py
     """
 
-    def __init__(self, patience=100):
+    def __init__(self, patience=100, n_descriptors=None):
         """
         Args:
             model: the PyTorch model being trained
@@ -33,9 +35,19 @@ class EarlyStopping:
         self.best_loss = None
         self.step_at_best = 0
         self.stop = False
+        self.n_descriptors = n_descriptors
+        if self.n_descriptors:
+            self.min_vals = torch.full(
+                (n_descriptors,), float("inf")
+            )  # [mol_wt, log_p, tpsa, hba, hbd, qed]
+            self.max_vals = torch.full((n_descriptors,), float("-inf"))
         print("instantiated early stopping with patience=" + str(self.patience))
 
-    def __call__(self, val_loss, model, output_file, step_idx):
+    def __call__(self, val_loss, model, output_file, step_idx, batch_min, batch_max):
+        if self.n_descriptors:
+            # Store global min max descriptors
+            self.min_vals = torch.min(self.min_vals, batch_min)
+            self.max_vals = torch.max(self.max_vals, batch_max)
         # do nothing if early stopping is disabled
         if self.patience > 0:
             if self.best_loss is None:
@@ -59,9 +71,24 @@ class EarlyStopping:
     def save_model(self, model, output_file):
         torch.save(model.state_dict(), output_file)
 
+    def generate_csv(self, filepath, descriptor_cols):
+        df_info = pd.DataFrame(
+            {
+                "descriptor": descriptor_cols,
+                "min_val": self.min_vals.numpy(),
+                "max_val": self.max_vals.numpy(),
+            }
+        )
+        write_to_csv_file(filepath, df_info)
+
 
 def track_loss(
-    output_file, epoch, batch_no, value, outcome=("training loss", "validation loss")
+    output_file,
+    epoch,
+    batch_no,
+    value,
+    outcome=("training loss", "validation loss"),
+    writer=None,
 ):
     sched = pd.DataFrame(
         {
@@ -72,6 +99,10 @@ def track_loss(
         }
     )
 
+    if writer is not None:
+        for _outcome, _value in zip(outcome, value):
+            writer.add_scalar(_outcome, _value, batch_no)
+
     # write training schedule (write header if file does not exist)
     if not os.path.isfile(output_file) or batch_no == 0:
         sched.to_csv(output_file, index=False)
@@ -80,7 +111,13 @@ def track_loss(
 
 
 def print_update(
-    model, epoch, batch_idx, training_loss, validation_loss, n_smiles=64, masses=None
+    model,
+    epoch,
+    batch_idx,
+    training_loss,
+    validation_loss,
+    n_smiles=64,
+    combined_features=None,
 ):
     # print message
     tqdm.write("*" * 50)
@@ -92,9 +129,9 @@ def print_update(
     )
 
     # sample a batch of SMILES and print them
-    if masses is not None:
-        masses = torch.tensor(masses)
-        smiles = model.sample(masses, return_smiles=True)
+    if combined_features is not None:
+        # masses = torch.tensor(masses) # Masses are already a tensor
+        smiles = model.sample(combined_features, return_smiles=True)
     else:
         smiles = model.sample(n_smiles, return_smiles=True)
 

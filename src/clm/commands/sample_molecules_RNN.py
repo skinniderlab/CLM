@@ -6,8 +6,8 @@ import torch
 from tqdm import tqdm
 
 from clm.datasets import Vocabulary, SelfiesVocabulary
-from clm.models import RNN
-from clm.functions import write_to_csv_file
+from clm.models import RNN, ConditionalRNN
+from clm.functions import write_to_csv_file, read_csv_file
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,47 @@ def add_args(parser):
     parser.add_argument(
         "--output_file", type=str, help="File path to save the output file"
     )
+    parser.add_argument(
+        "--conditional_rnn",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--conditional_emb",
+        action="store_true",
+        help="Add descriptor with the input smiles without passing it through an embedding layer",
+    )
+    parser.add_argument(
+        "--conditional_emb_l",
+        action="store_true",
+        help="Pass the descriptors through an embedding layer and add descriptor with the input smiles",
+    )
+    parser.add_argument(
+        "--conditional_dec",
+        action="store_true",
+        help="Add descriptor with the rnn output without passing it through decoder layer",
+    )
+    parser.add_argument(
+        "--conditional_dec_l",
+        action="store_true",
+        help="Pass the descriptors through a decoder layer and add descriptor with the rnn output",
+    )
+    parser.add_argument(
+        "--conditional_h",
+        action="store_true",
+        help="Add descriptor in hidden and cell state",
+    )
+    parser.add_argument(
+        "--minmax_descriptor_file",
+        type=str,
+        default=None,
+        help="File path for storing min and max of all the descriptors which would be responsible as inputs for sampling",
+    )
+    parser.add_argument(
+        "--sample_descriptor_file",
+        type=str,
+        default=None,
+        help="File path for sample descriptors",
+    )
 
     return parser
 
@@ -69,6 +110,14 @@ def sample_molecules_RNN(
     vocab_file,
     model_file,
     output_file,
+    conditional_rnn=False,
+    conditional_emb=False,
+    conditional_emb_l=True,
+    conditional_dec=False,
+    conditional_dec_l=True,
+    conditional_h=False,
+    minmax_descriptor_file=None,
+    sample_descriptor_file=None,
 ):
     os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 
@@ -79,14 +128,59 @@ def sample_molecules_RNN(
     else:
         vocab = Vocabulary(vocab_file=vocab_file)
 
-    model = RNN(
-        vocab,
-        rnn_type=rnn_type,
-        n_layers=n_layers,
-        embedding_size=embedding_size,
-        hidden_size=hidden_size,
-        dropout=dropout,
-    )
+    descriptors = None
+
+    if conditional_rnn:
+        if sample_descriptor_file is None:
+            descriptors_csv = read_csv_file(minmax_descriptor_file)
+            min_vals = descriptors_csv["min_val"].values
+            max_vals = descriptors_csv["max_val"].values
+
+            descriptors = torch.rand((sample_mols, len(min_vals))) * (
+                torch.tensor(max_vals) - torch.tensor(min_vals)
+            ) + torch.tensor(min_vals)
+        else:
+            descriptor_input = read_csv_file(sample_descriptor_file, delimiter=",")
+            # Handle inchikey and smiles if present drop the columns
+            columns_dropped = ["smiles", "inchikey"]
+            descriptor_input = descriptor_input.drop(
+                columns=[
+                    col for col in columns_dropped if col in descriptor_input.columns
+                ]
+            )
+
+            # Handle the order of columns from a min_max_descriptor_file
+            descriptors_csv = read_csv_file(minmax_descriptor_file)
+            descriptor_col = descriptors_csv["descriptor"].values
+            descriptor_input = descriptor_input[descriptor_col]
+            descriptors = descriptor_input.values
+
+            descriptors = torch.tensor(descriptors, dtype=torch.float32)
+
+        model = ConditionalRNN(
+            vocab,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+            num_descriptors=descriptors.shape[1],
+            conditional_emb=conditional_emb,
+            conditional_emb_l=conditional_emb_l,
+            conditional_dec=conditional_dec,
+            conditional_dec_l=conditional_dec_l,
+            conditional_h=conditional_h,
+        )
+
+    else:
+        model = RNN(
+            vocab,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+        )
     logging.info(vocab.dictionary)
 
     if torch.cuda.is_available():
@@ -101,13 +195,16 @@ def sample_molecules_RNN(
 
     with tqdm(total=sample_mols) as pbar:
         for i in range(0, sample_mols, batch_size):
-            sampled_smiles, losses = model.sample(
-                min(batch_size, sample_mols - i), return_losses=True
-            )
+            end_idx = i + min(batch_size, sample_mols - i)
+            if conditional_rnn:
+                batch_descriptors = descriptors[i:end_idx, :]
+                sampled_smiles, losses = model.sample(
+                    batch_descriptors, return_losses=True
+                )
+            else:
+                sampled_smiles, losses = model.sample(end_idx - i, return_losses=True)
             df = pd.DataFrame(zip(losses, sampled_smiles), columns=["loss", "smiles"])
-
             write_to_csv_file(output_file, mode="w" if i == 0 else "a+", info=df)
-
             pbar.update(batch_size)
 
 
@@ -124,4 +221,12 @@ def main(args):
         vocab_file=args.vocab_file,
         model_file=args.model_file,
         output_file=args.output_file,
+        conditional_rnn=args.conditional_rnn,
+        conditional_emb=args.conditional_emb,
+        conditional_emb_l=args.conditional_emb_l,
+        conditional_dec=args.conditional_dec,
+        conditional_dec_l=args.conditional_dec_l,
+        conditional_h=args.conditional_h,
+        minmax_descriptor_file=args.minmax_descriptor_file,
+        sample_descriptor_file=args.sample_descriptor_file,
     )

@@ -34,6 +34,12 @@ model_params:
   log_every_steps: 100
   log_every_epochs: 1
   sample_mols: 10000000
+  conditional_emb: False
+  conditional_emb_l: True
+  conditional_dec: False
+  conditional_dec_l: True
+  conditional_h: False
+  conditional_rnn: False
 metrics:
   - freq-sum
   - freq-avg
@@ -58,6 +64,7 @@ paths:
   train_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.smi"
   vocab_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.vocabulary"
   model_file: "{output_dir}/{enum_factor}/prior/models/{dataset}_{repr}_{fold}_{train_seed}_model.pt"
+  minmax_file: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_{train_seed}_samples_max_min.csv.gz"
   input_file: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples.csv.gz"
   train0_file: "{output_dir}/{enum_factor}/prior/inputs/train0_{dataset}_{repr}_{fold}.smi"
   test0_file: "{output_dir}/{enum_factor}/prior/inputs/test0_{dataset}_{repr}_{fold}.smi"
