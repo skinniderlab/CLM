@@ -55,7 +55,7 @@ def test_snakemake():
             ]
         ).encode("utf8")
     ).hexdigest()
-    assert checksum == "7d6689e0e01419d3dc7c104648b4abc9"
+    assert checksum == "8574598a5961eed1d2e48341d343a997"
     #
     tc_file_overall = f"{temp_dir}/0/prior/structural_prior/LOTUS_truncated_SMILES_min1_all_freq-avg_CV_tc.csv.gz"
     checksum = hashlib.md5(
@@ -66,4 +66,4 @@ def test_snakemake():
             ]
         ).encode("utf8")
     ).hexdigest()
-    assert checksum == "0675c26700585c124a4917dc3beeed38"
+    assert checksum == "9347406876ec6853885689f4dafd142b"

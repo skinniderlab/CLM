@@ -41,12 +41,18 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     train_data = read_csv_file(train_file)
     # create a dictionary from inchikey to smiles
     train_data = train_data.set_index("inchikey")["smiles"].to_dict()
-    sampled_smiles = read_file(input_file, stream=True)
+    sampled_smiles_df = read_file(input_file, stream=False, smile_only=False)
+    if "smiles" in sampled_smiles_df.columns:
+        sampled_smiles = sampled_smiles_df["smiles"]
+    else:
+        # legacy output of sampling step produced a csv file without a header
+        # but with 2 columns - <loss>, <sampled_smile>
+        assert sampled_smiles_df.shape[1] == 2
+        sampled_smiles = sampled_smiles_df[1]
 
     new_smiles = []
     invalid_smiles, known_smiles = defaultdict(int), defaultdict(int)
-    for i, line in enumerate(tqdm(sampled_smiles)):
-        *_, smile = line.split(",")
+    for i, smile in enumerate(tqdm(sampled_smiles)):
 
         # input file may have empty value for smile
         if smile.strip() == "":

@@ -28,9 +28,17 @@ def test_00_preprocess(tmp_path):
         output_file=tmp_path / "preprocessed.smi",
         max_input_smiles=1000,
     )
-    assert_checksum_equals(
-        tmp_path / "preprocessed.smi", test_dir / "prior/raw/LOTUS_truncated.txt"
+    generated = (
+        pd.read_csv(tmp_path / "preprocessed.smi")[["smiles", "inchikey"]]
+        .sort_values("inchikey")
+        .reset_index(drop=True)
     )
+    oracle = (
+        pd.read_csv(test_dir / "prior/raw/LOTUS_truncated.txt")[["smiles", "inchikey"]]
+        .sort_values("inchikey")
+        .reset_index(drop=True)
+    )
+    pd.testing.assert_frame_equal(generated, oracle)
 
 
 def test_01_create_training_sets(tmp_path):

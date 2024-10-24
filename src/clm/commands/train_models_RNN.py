@@ -9,7 +9,7 @@ from tqdm import tqdm
 from rdkit import rdBase
 
 from clm.datasets import SmilesDataset, SelfiesDataset
-from clm.models import RNN
+from clm.models import RNN, ConditionalRNN
 from clm.loggers import EarlyStopping, track_loss, print_update
 from clm.functions import read_file, write_smiles
 
@@ -93,15 +93,44 @@ def add_args(parser):
         "--loss_file", type=str, help="File path to save the training loss data"
     )
 
+    parser.add_argument(
+        "--conditional", action="store_true", help="Activate Conditional RNN model"
+    )
+    parser.add_argument(
+        "--conditional_emb",
+        action="store_true",
+        help="Add descriptor with the input smiles without passing it through an embedding layer",
+    )
+    parser.add_argument(
+        "--conditional_emb_l",
+        action="store_true",
+        help="Pass the descriptors through an embedding layer and add descriptor with the input smiles",
+    )
+    parser.add_argument(
+        "--conditional_dec",
+        action="store_true",
+        help="Add descriptor with the rnn output without passing it through decoder layer",
+    )
+    parser.add_argument(
+        "--conditional_dec_l",
+        action="store_true",
+        help="Pass the descriptors through a decoder layer and add descriptor with the rnn output",
+    )
+    parser.add_argument(
+        "--conditional_h",
+        action="store_true",
+        help="Add descriptor in hidden and cell state",
+    )
+
     return parser
 
 
 def load_dataset(representation, input_file, vocab_file):
-    inputs = read_file(input_file, smile_only=True)
+    inputs = read_file(input_file, smile_only=False)
     if representation == "SELFIES":
-        return SelfiesDataset(selfies=inputs, vocab_file=vocab_file)
+        return SelfiesDataset(data=inputs, vocab_file=vocab_file)
     else:
-        return SmilesDataset(smiles=inputs, vocab_file=vocab_file)
+        return SmilesDataset(data=inputs, vocab_file=vocab_file)
 
 
 def training_step(batch, model, optim, dataset, batch_size):
@@ -143,20 +172,43 @@ def train_models_RNN(
     smiles_file,
     model_file,
     loss_file,
+    conditional=False,
+    conditional_emb=False,
+    conditional_emb_l=True,
+    conditional_dec=False,
+    conditional_dec_l=True,
+    conditional_h=False,
 ):
 
     os.makedirs(os.path.dirname(os.path.abspath(model_file)), exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(loss_file)), exist_ok=True)
 
     dataset = load_dataset(representation, input_file, vocab_file)
-    model = RNN(
-        dataset.vocabulary,
-        rnn_type=rnn_type,
-        n_layers=n_layers,
-        embedding_size=embedding_size,
-        hidden_size=hidden_size,
-        dropout=dropout,
-    )
+
+    if conditional:
+        model = ConditionalRNN(
+            dataset.vocabulary,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+            num_descriptors=dataset.n_descriptors,
+            conditional_emb=conditional_emb,
+            conditional_emb_l=conditional_emb_l,
+            conditional_dec=conditional_dec,
+            conditional_dec_l=conditional_dec_l,
+            conditional_h=conditional_h,
+        )
+    else:
+        model = RNN(
+            dataset.vocabulary,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+        )
 
     logger.info(dataset.vocabulary.dictionary)
 
@@ -181,9 +233,13 @@ def train_models_RNN(
                     loop_count,
                     value=[loss.item(), validation_loss.item()],
                 )
-                print_update(
-                    model, epoch, batch_no + 1, loss.item(), validation_loss.item()
-                )
+
+                # TODO PR249: print_update doesn't work for ConditionalRNN
+                # yet (due to model.sample not being tested)
+                if not conditional:
+                    print_update(
+                        model, epoch, batch_no + 1, loss.item(), validation_loss.item()
+                    )
 
             early_stop(validation_loss.item(), model, model_file, loop_count)
 
@@ -229,4 +285,10 @@ def main(args):
         smiles_file=args.smiles_file,
         model_file=args.model_file,
         loss_file=args.loss_file,
+        conditional=args.conditional,
+        conditional_emb=args.conditional_emb,
+        conditional_emb_l=args.conditional_emb_l,
+        conditional_dec=args.conditional_dec,
+        conditional_dec_l=args.conditional_dec_l,
+        conditional_h=args.conditional_h,
     )

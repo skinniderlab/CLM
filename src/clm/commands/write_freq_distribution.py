@@ -19,7 +19,7 @@ def write_freq_distribution(sampled_file, test_file, output_file):
     logger.info(f"Reading sampled data from {sampled_file}")
     sampled_data = read_csv_file(sampled_file)
     logger.info(f"Reading test smiles from {test_file}")
-    test_smiles = set(read_file(test_file, stream=True, smile_only=True))
+    test_smiles = set(read_file(test_file, stream=False, smile_only=True)["smiles"])
 
     # Label smiles not found in test set as novel
     logger.info("Finding novel smiles in sampled data")

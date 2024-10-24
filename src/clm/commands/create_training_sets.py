@@ -162,9 +162,10 @@ def create_training_sets(
     max_input_smiles=None,
 ):
     logger.info("reading input SMILES ...")
-    smiles = read_file(
+    data = read_file(
         smiles_file=input_file, smile_only=True, max_lines=max_input_smiles
     )
+    smiles = data["smiles"]
 
     if min_tc > 0:
         logger.info(f"picking {n_molecules} molecules with min_tc={min_tc} ...")
@@ -260,13 +261,28 @@ def create_training_sets(
                     pass
             test = test_out
 
-    write_smiles(train0, str(train0_file).format(fold=which_fold), add_inchikeys=True)
-    write_smiles(train, str(train_file).format(fold=which_fold), add_inchikeys=True)
+    write_smiles(
+        train0,
+        str(train0_file).format(fold=which_fold),
+        add_inchikeys=True,
+        extra_data=data,
+    )
+    write_smiles(
+        train,
+        str(train_file).format(fold=which_fold),
+        add_inchikeys=True,
+        extra_data=data,
+    )
     vocabulary = vocabulary_from_representation(representation, train)
     logger.info("vocabulary of {} characters".format(len(vocabulary)))
     vocabulary.write(output_file=str(vocab_file).format(fold=which_fold))
     if test0 is not None:
-        write_smiles(test0, str(test0_file).format(fold=which_fold), add_inchikeys=True)
+        write_smiles(
+            test0,
+            str(test0_file).format(fold=which_fold),
+            add_inchikeys=True,
+            extra_data=data,
+        )
 
 
 def main(args):

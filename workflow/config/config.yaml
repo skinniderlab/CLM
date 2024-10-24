@@ -22,6 +22,13 @@ enum_factors:
   - 100
 max_input_smiles: 0
 model_params:
+  conditional:
+    enabled: False
+    emb: False
+    emb_l: True
+    dec: False
+    dec_l: True
+    h: False
   rnn_type: LSTM
   embedding_size: 128
   hidden_size: 1024

@@ -35,20 +35,13 @@ def add_carbon(input_file, output_file):
     data = []
 
     # read the input SMILES
-    smiles = read_file(input_file, smile_only=False)
-
-    smiles_parts = [sm.split(",") for sm in smiles]
-    if all([len(part) == 1 for part in smiles_parts]):
-        smiles = [part[0] for part in smiles_parts]
+    dataframe = read_file(input_file, smile_only=False)
+    smiles = dataframe["smiles"].tolist()
+    if "inchikey" in dataframe.columns:
+        train_inchi = dataframe["inchikey"].tolist()
+    else:
         train_mols = [clean_mol(smile, raise_error=False) for smile in smiles]
         train_inchi = set([Chem.inchi.MolToInchiKey(mol) for mol in train_mols if mol])
-    elif all([len(part) == 2 for part in smiles_parts]):
-        smiles = [part[0] for part in smiles_parts]
-        train_inchi = set([part[1] for part in smiles_parts])
-    else:
-        raise RuntimeError(
-            "The input file should have either 1 column (smile) or 2 columns (smiles, inchikey"
-        )
 
     # loop over the input SMILES
     # output_smiles = list()
