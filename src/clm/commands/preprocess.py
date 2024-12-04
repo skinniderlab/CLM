@@ -1,10 +1,7 @@
 import logging
-from tqdm import tqdm
-import numpy as np
 from rdkit import Chem
 from clm.functions import (
     read_file,
-    write_smiles,
     clean_mols,
     remove_salts_solvents,
     NeutraliseCharges,
@@ -62,85 +59,64 @@ def preprocess(
     min_heavy_atoms=3,
     valid_atoms=None,
     remove_rare=False,
-    chunk_size=100000,
 ):
     logger.info("reading input SMILES ...")
 
-    all_smiles = read_file(
+    data = read_file(
         smiles_file=input_file,
         max_lines=max_input_smiles,
-        smile_only=True,
+        smile_only=False,
     )
 
-    def preprocess_chunk(
-        input_smiles, neutralise=True, min_heavy_atoms=3, valid_atoms=None
+    def preprocess_smile(
+        smile, neutralise=True, min_heavy_atoms=3, valid_elements=None
     ):
-        logger.info("Preprocessing chunk of {} SMILES".format(len(input_smiles)))
-        logger.info(
-            "converting {} input SMILES to molecules ...".format(len(input_smiles))
-        )
-        mols = clean_mols(input_smiles)
-
-        logger.info("Removing heavy atoms from {} molecules ...".format(len(mols)))
+        mol = clean_mols([smile])[0]
         if min_heavy_atoms > 0:
-            mols = [
-                remove_salts_solvents(mol, hac=min_heavy_atoms) if mol else None
-                for mol in mols
-            ]
-
+            mol = remove_salts_solvents(mol, hac=min_heavy_atoms) if mol else None
         if neutralise:
-            logger.info("Neutralising charges from {} molecules ...".format(len(mols)))
-            mols = [NeutraliseCharges(mol) if mol else None for mol in mols]
+            mol = NeutraliseCharges(mol) if mol else None
 
-        elements = [
-            [atom.GetSymbol() for atom in mol.GetAtoms()] if mol else None
-            for mol in mols
-        ]
-        valid_atoms = valid_atoms or VALID_ELEMENTS
-        valid = set(valid_atoms)
-        for idx, atoms in enumerate(elements):
-            if atoms is not None and len(set(atoms) - valid) > 0:
-                mols[idx] = None
+        elements = set([atom.GetSymbol() for atom in mol.GetAtoms()] if mol else [])
+        valid_elements = set(valid_elements or VALID_ELEMENTS)
+        if elements.difference(valid_elements):
+            mol = None
+        return mol
 
-        mols = [mol for mol in mols if mol is not None]
+    data["mol"] = data.apply(
+        lambda row: preprocess_smile(
+            row["smiles"],
+            neutralise=neutralise,
+            min_heavy_atoms=min_heavy_atoms,
+            valid_elements=valid_atoms,
+        ),
+        axis=1,
+    )
+    data = data[~data["mol"].isnull()]
 
-        return mols
+    data["inchikey"] = data.apply(
+        lambda row: Chem.inchi.MolToInchiKey(row["mol"]) if row["mol"] else None, axis=1
+    )
+    data.drop_duplicates(subset="inchikey", inplace=True)
+    data["smiles"] = data.apply(
+        lambda row: Chem.MolToSmiles(row["mol"]) if row["mol"] else None, axis=1
+    )
 
-    mols = []
-    with tqdm(total=len(all_smiles)) as pbar:
-        for i in range(0, len(all_smiles), chunk_size):
-            input_smiles = all_smiles[i : i + chunk_size]
-            _mols = preprocess_chunk(
-                input_smiles=input_smiles,
-                neutralise=neutralise,
-                min_heavy_atoms=min_heavy_atoms,
-                valid_atoms=valid_atoms,
-            )
-            mols.extend(_mols)
-            pbar.update(len(input_smiles))
+    data = data.drop(["mol"], axis=1)
 
-    # InchI Keys are a reliable way to identify duplicates
-    logger.info(f"{len(mols)} total molecules")
-    inchikeys = np.array([Chem.inchi.MolToInchiKey(mol) for mol in mols])
-    inchikeys, indices = np.unique(inchikeys, return_index=True)
-    logger.info(f"{len(indices)} unique InChI keys found")
-
-    logger.info(f"converting {len(indices)} molecules back to SMILES")
-    smiles = [Chem.MolToSmiles(mol) for mol in np.array(mols)[indices]]
-    smiles = [sm for sm in smiles if sm != ""]
-
+    # Filter out any smiles with infrequent (<=10 or <0.01%) tokens
     if remove_rare:
-        logger.info("Creating vocabulary")
-        vocabulary = Vocabulary(smiles=smiles)
-        logger.info(f"Trimming vocabulary of size {len(vocabulary)}")
-        n_smiles = len(smiles)
-        for token in vocabulary.characters:
-            token_smiles = [sm for sm in smiles if token in vocabulary.tokenize(sm)]
-            pct_smiles = len(token_smiles) / n_smiles
-            if pct_smiles < 0.01 / 100 or len(token_smiles) <= 10:
-                smiles = np.setdiff1d(smiles, token_smiles)
+        vocabulary = Vocabulary(smiles=data["smiles"].tolist())
+        n_smiles = len(data)
 
-    write_smiles(smiles, output_file, mode="w", add_inchikeys=True)
+        for i, token in enumerate(vocabulary.characters):
+            has_token = data.apply(
+                lambda row: token in vocabulary.tokenize(row["smiles"]), axis=1
+            )
+            if has_token.sum() <= 10 or len(has_token) < 0.0001 * n_smiles:
+                data = data[~has_token]
+
+    data.to_csv(output_file, sep=",", index=False)
 
 
 def main(args):

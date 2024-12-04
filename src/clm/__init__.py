@@ -1,6 +1,5 @@
 import logging.config
 
-
 # The _version.py file is managed by setuptools-scm
 #   and is not in version control.
 try:

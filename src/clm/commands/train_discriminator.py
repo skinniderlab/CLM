@@ -94,7 +94,12 @@ def train_discriminator(train_file, sample_file, output_file, seed, max_mols=100
     # Predict classes for held-out molecules
     y_pred = rf.predict(X_test)
     y_probs = rf.predict_proba(X_test)
-    y_prob_1 = [x[1] for x in y_probs]
+    if (
+        y_probs.shape[1] == 1
+    ):  # We never trained on more than 1 class, so we only got a single proba value of 1 each
+        y_prob_1 = [0] * len(y_probs)
+    else:
+        y_prob_1 = [x[1] for x in y_probs]
 
     output_dict = {
         "y": y_test,

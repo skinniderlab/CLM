@@ -3,6 +3,7 @@ import pandas as pd
 import torch
 from rdkit import Chem
 from tqdm import tqdm
+from clm.models import ConditionalRNN
 
 
 class EarlyStopping:
@@ -80,7 +81,7 @@ def track_loss(
 
 
 def print_update(
-    model, epoch, batch_idx, training_loss, validation_loss, n_smiles=64, masses=None
+    model, epoch, batch_idx, training_loss, validation_loss, n_smiles=64, dataset=None
 ):
     # print message
     tqdm.write("*" * 50)
@@ -92,11 +93,15 @@ def print_update(
     )
 
     # sample a batch of SMILES and print them
-    if masses is not None:
-        masses = torch.tensor(masses)
-        smiles = model.sample(masses, return_smiles=True)
+    if isinstance(model, ConditionalRNN):
+        assert (
+            dataset is not None
+        ), "To sample from a Conditional RNN model, a dataset must be provided"
+        _, _, descriptors = dataset.get_validation(n_smiles)
+        descriptors = descriptors.to(model.device)
+        smiles = model.sample(descriptors=descriptors, return_smiles=True)
     else:
-        smiles = model.sample(n_smiles, return_smiles=True)
+        smiles = model.sample(n_sequences=n_smiles, return_smiles=True)
 
     valid = 0
     for idx, sm in enumerate(smiles):

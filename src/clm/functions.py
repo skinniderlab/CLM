@@ -6,6 +6,7 @@ import os
 import os.path
 import pandas as pd
 import warnings
+import pathlib
 from selfies import decoder
 from tqdm import tqdm
 from rdkit import Chem
@@ -172,12 +173,15 @@ def read_file(
     Args:
         smiles_file: Input file containing SMILES strings, or comma-separated file with "smiles" in the header.
         max_lines: Maximum number of lines to return.
-        smile_only: Whether to return only the SMILES strings.
+        smile_only: Unused; will be deprecated.
         stream: Whether to return a generator or a list.
         randomize: Whether to shuffle the lines in the file before reading.
 
     Returns:
-        An iterator or list of strings.
+        If stream is True
+            A generator that yields a dictionary
+        Otherwise
+            A pandas Dataframe of SMILES strings and properties.
     """
 
     def _read_file(
@@ -192,58 +196,80 @@ def read_file(
             open_fn = open
             mode = "r"
 
-        count = 0
+        is_csv = has_header = False
+        sep = ","
         with open_fn(input_file, mode) as f:
             # Detect if we're dealing with a csv file with "smiles" in the header
             first_line = f.readline()
-            first_line_tokens = next(csv.reader([first_line]))
-            is_csv = "smiles" in first_line_tokens
 
-            if is_csv:
-                smile_idx = first_line_tokens.index("smiles")
-            else:
-                smile_idx = None
-                f.seek(0)  # go to beginning of file
+            for sep in (",", "\t", " "):
+                first_line_tokens = next(csv.reader([first_line], delimiter=sep))
+                has_header = "smiles" in first_line_tokens
+                is_csv = has_header or len(first_line_tokens) > 1
+                if is_csv:
+                    break
 
-            for line in f:
-                tokens = next(csv.reader([line]))
-                if is_csv and smile_only:
-                    yield tokens[smile_idx]
-                else:
-                    yield line.strip()
-                count += 1
-                if max_lines is not None and count == max_lines:
-                    return
+        # max_lines=0 is a shortcut for max_lines=None
+        if max_lines == 0:
+            max_lines = None
+
+        dataframe = pd.read_csv(
+            input_file, header=0 if has_header else None, nrows=max_lines, sep=sep
+        )
+
+        # Handle legacy files - no header, and a single column for the SMILE strings
+        if not has_header and len(dataframe.columns) == 1:
+            dataframe.columns = ["smiles"]
+
+        # Handle column dtypes that we know about
+        for column in ("smiles", "inchikey"):
+            if column in dataframe.columns:
+                dataframe[column] = dataframe[column].fillna("").astype(str)
+
+        return dataframe
 
     if randomize:
-        # if randomizing, we have to consume the generator and shuffle it
-        gen = _read_file(smiles_file, max_lines=None, smile_only=smile_only)
-        data = np.array(list(gen))
-        np.random.shuffle(data)
+        data = _read_file(smiles_file, max_lines=None, smile_only=smile_only)
+        indices = data.index.values
+        np.random.shuffle(indices)
+        data = data.iloc[indices]
         data = data[:max_lines]
-        return iter(data) if stream else data
+
     else:
-        gen = _read_file(smiles_file, max_lines, smile_only)
-        return gen if stream else np.array(list(gen))
+        data = _read_file(smiles_file, max_lines, smile_only)
+
+    data = data.to_dict("records")  # to list of dicts
+    return iter(data) if stream else pd.DataFrame(data)
 
 
-def write_smiles(smiles, smiles_file, mode="w", add_inchikeys=False):
+def write_smiles(smiles, smiles_file, add_inchikeys=False, extra_data=None):
     """
     Write a list of SMILES to a line-delimited file.
+    inchikeys are added if `add_inchikeys` is True.
+
+    If `add_inchikeys` is True AND `extra_data` (a pandas Dataframe) is
+    provided, it should have an "inchikey" field which is used to fetch
+    any additional metadata about the smile (i.e. any non "smiles" field in the
+    Dataframe) to write to the output `smiles_file`. Smiles that don't have
+    a corresponding inchikey in `extra_data` have `nan` values in these
+    newly-added columns.
     """
+
+    def get_inchikey(smile):
+        if mol := clean_mol(smile, raise_error=False):
+            return Chem.inchi.MolToInchiKey(mol)
+        else:
+            return ""
+
     os.makedirs(os.path.dirname(os.path.abspath(smiles_file)), exist_ok=True)
-    with open(smiles_file, mode) as f:
-        if add_inchikeys:
-            f.write("smiles,inchikey\n")
-        for sm in smiles:
-            f.write(sm)
-            if add_inchikeys:
-                if mol := clean_mol(sm, raise_error=False):
-                    inchikey = Chem.inchi.MolToInchiKey(mol)
-                else:
-                    inchikey = ""
-                f.write(f",{inchikey}")
-            f.write("\n")
+    df = pd.DataFrame(smiles, columns=["smiles"])
+    if add_inchikeys:
+        df["inchikey"] = df.apply(lambda row: get_inchikey(row["smiles"]), axis=1)
+        if extra_data is not None:
+            extra_data = extra_data.drop("smiles", axis=1, errors="ignore")
+            df = df.merge(extra_data, how="left", on="inchikey")
+
+    df.to_csv(smiles_file, sep=",", index=False)
 
 
 """
@@ -461,6 +487,11 @@ def pct_stereocenters(mol):
 
 def generate_df(smiles_file, chunk_size):
     smiles_df = read_csv_file(smiles_file)
+
+    smiles_df = smiles_df.drop(
+        [col for col in smiles_df.columns if col not in ("smiles", "inchikey")], axis=1
+    )
+
     smiles = smiles_df["smiles"].to_list()
     df = pd.DataFrame(columns=["smiles", "mass", "formula"])
 
@@ -591,3 +622,18 @@ def local_seed(seed):
         yield
     finally:
         np.random.set_state(current_state)
+
+
+def load_dataset(representation, input_file, vocab_file):
+    from clm.datasets import SmilesDataset, SelfiesDataset
+
+    # Detect if we're dealing with a single or multiple input files
+    multiple = not isinstance(input_file, (str, pathlib.Path))
+    if not multiple:
+        input_file = [input_file]
+    inputs = [read_file(f, smile_only=False) for f in input_file]
+    inputs = pd.concat(inputs, axis=0)
+    if representation == "SELFIES":
+        return SelfiesDataset(data=inputs, vocab_file=vocab_file)
+    else:
+        return SmilesDataset(data=inputs, vocab_file=vocab_file)
