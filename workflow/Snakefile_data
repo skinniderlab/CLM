@@ -186,7 +186,12 @@ rule train_models_RNN:
         '--vocab_file {input.vocab_file} '
         '--model_file {output.model_file} '
         '--loss_file {output.loss_file} '
-
+        f'{"--conditional" if config["model_params"]["conditional"]["enabled"] else ""} '
+        f'{"--conditional_emb" if config["model_params"]["conditional"]["emb"] else ""} '
+        f'{"--conditional_emb_l" if config["model_params"]["conditional"]["emb_l"] else ""} '
+        f'{"--conditional_dec" if config["model_params"]["conditional"]["dec"] else ""} '
+        f'{"--conditional_dec_l" if config["model_params"]["conditional"]["dec_l"] else ""} '
+        f'{"--conditional_h" if config["model_params"]["conditional"]["h"] else ""} '
 
 rule sample_molecules_RNN:
     """
@@ -196,7 +201,8 @@ rule sample_molecules_RNN:
     conda: "clm"
     input:
         model_file = PATHS['model_file'],
-        vocab_file = PATHS['vocab_file']
+        vocab_file = PATHS['vocab_file'],
+        heldout_file = PATHS['test0_file']
     output:
         output_file = PATHS['input_file']
     resources:
@@ -217,7 +223,13 @@ rule sample_molecules_RNN:
         '--vocab_file {input.vocab_file} '
         '--model_file {input.model_file} '
         '--output_file {output.output_file} '
-
+        f'{"--conditional" if config["model_params"]["conditional"]["enabled"] else ""} '
+        f'{"--conditional_emb" if config["model_params"]["conditional"]["emb"] else ""} '
+        f'{"--conditional_emb_l" if config["model_params"]["conditional"]["emb_l"] else ""} '
+        f'{"--conditional_dec" if config["model_params"]["conditional"]["dec"] else ""} '
+        f'{"--conditional_dec_l" if config["model_params"]["conditional"]["dec_l"] else ""} '
+        f'{"--conditional_h" if config["model_params"]["conditional"]["h"] else ""} '
+        "--heldout_file {input.heldout_file} "
 
 rule tabulate_molecules:
     """

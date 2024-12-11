@@ -242,7 +242,9 @@ def test_nn_tc_ever_never(tmp_path):
         reference_file=reference_file,
         output_file=output_file,
     )
-    assert_checksum_equals(output_file, test_dir / "output_nn_tc_ever_never.csv")
+    pd.testing.assert_frame_equal(
+        pd.read_csv(output_file), pd.read_csv(test_dir / "output_nn_tc_ever_never.csv")
+    )
 
 
 def test_tc_matches(tmp_path):

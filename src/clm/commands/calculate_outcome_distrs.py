@@ -60,7 +60,7 @@ def write_outcome_distr(sample_file, max_mols, train_file, pubchem_file):
     pubchem = pubchem[pubchem["formula"].isin(set(sample.formula))]
     pubchem = pubchem.drop_duplicates(subset=["formula"], keep="first")
 
-    train = pd.DataFrame({"smiles": read_file(train_file, smile_only=True)})
+    train = pd.DataFrame({"smiles": read_file(train_file, smile_only=True)["smiles"]})
     combination = pd.concat(
         [
             sample.assign(source="model"),
