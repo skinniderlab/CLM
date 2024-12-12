@@ -1,63 +1,111 @@
+# Molecular sequence representations of chemical species for training and sampling.
+# Determines how the molecules are encoded internally.
 representations:
   - SMILES
+
+# The number of cross-validation fold used.
+# The dataset is split into train/test set for each fold, and models are trained/tested on each fold.
 folds: 3
+
+# Seeds used to initialize random number generators for the training runs.
+# Each seed corresponds to a separate training run.
+# The number of 'train_seeds' have to the same as the number of folds specified in line 8.
 train_seeds:
   - 0
   - 1
+
+# Seeds used when sampling molecules from the trained models.
+# The amount of 'sample_seeds' parameter specifies how many times the 'sample_molecules_RNN' step is executed,
+# each time using the same trained model but with different random seed values.
 sample_seeds:
   - 0
+
+# Specifies by how many times the input data is augmented (or enumerated) before training.
+# This utilizes the fact that a single molecule can have multiple SMILES representation.
+# For example, a value of 0 means no augmentation, while 100 means each molecule can have
+# up to 100 different representations in the training set.
 enum_factors:
   - 0
+
+#  Limits the maximum number of input SMILES to be processed. 0 means there's no limit.
 max_input_smiles: 1000
+
+# Parameters that define the neural network model and training process.
 model_params:
-  rnn_type: LSTM
-  embedding_size: 32
-  hidden_size: 256
-  n_layers: 3
-  dropout: 0
-  batch_size: 64
-  learning_rate: 0.001
-  max_epochs: 3
-  patience: 50000
-  log_every_steps: 100
-  log_every_epochs: 1
-  sample_mols: 100
+  rnn_type: LSTM # Type of Recurrent Neural Network (RNN) to use.
+  embedding_size: 32 # Size of the embedding vectors that represent each token in the input sequence.
+  hidden_size: 256 # Number of units in the hidden state of the RNN.
+  n_layers: 3  # Number of stacked RNN layers in the model.
+  dropout: 0 # Dropout rate applied to the RNN layer for regularization.
+  batch_size: 64 # Number of samples processed before the models internal parameters are updated.
+  learning_rate: 0.001 # Step size used by the optimizer to update model parameters.
+  max_epochs: 3 # Maximum number of training epochs (complete passes through the training dataset).
+  patience: 50000  # Number of epochs with no improvement after which training will be stopped (early stopping).
+  log_every_steps: 100 # Frequency of logging training progress in terms of steps (batches).
+  log_every_epochs: 1 # Frequency of logging trianing progress in terms of epochs.
+  sample_mols: 100 # Number of molecules to sample from the trained model after training.
+
+# Metrics for summarizing sampled molecules based on their frequency of generation across all folds:
+# - 'freq_sum': Calculates the total sum of frequency values.
+# - 'freq_avg': Calculates the average frequency.
+# - 'fp10k'   : Applies a scaling factor of 10,000 to normalize the data.
 metrics:
   - freq-avg
+
+# Minimum Tanimoto Coefficient threshold to filter out molecules from training set.
+# 0 means no filtering based on Tanimoto similarity
 min_tc: 0
+
+# Number of top candidate molecules to consider when evaluating correctness.
+# Here, correctness is defined as an exact mass match within a specified error range.
+# Example:
+#   A value of 30 means that the 30 most frequently generated molecules with a mass
+#   matching the target molecule's mass within the allowed error margin are considered
+#   for further evaluation.
 top_k: 30
+
+# Error tolerance in parts per million for mass-matching to consider a molecule "correct".
+# Used in rules that evaluate the correctness of generated or sampled molecules against known test molecules based on mass.
 err_ppm: 10
+
+# Specifies minimum frequency thresholds for inclusion.
+# Each value represents the minimum number of times a molecule must be generated
+# across all folds to be considered for further evaluation.
 structural_prior_min_freq:
   - 1
+
+# A single integer seed used as a global random seed for steps not covered by 'train_seeds' or 'sample_seeds'.
 random_seed: 5831
+
+# A dictionary that defines various input and output file paths, incorporating wildcards.
 paths:
   # Modify these paths to match your system
-  output_dir: data
-  dataset: "../tests/test_data/LOTUS_truncated.txt"
-  pubchem_tsv_file: "../tests/test_data/PubChem_truncated.tsv"
+  output_dir: data  # Base directory for outputs
+  dataset: "../tests/test_data/LOTUS_truncated.txt" # The input dataset file
+  pubchem_tsv_file: "../tests/test_data/PubChem_truncated.tsv" # File containing data from PubChem
 
   # The following paths can be modified, as long as all wildcards are preserved in each case
-  preprocess_output: "{output_dir}/prior/raw/{dataset}.txt"
-  train_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.smi"
-  vocab_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.vocabulary"
-  model_file: "{output_dir}/{enum_factor}/prior/models/{dataset}_{repr}_{fold}_{train_seed}_model.pt"
-  input_file: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples.csv.gz"
-  train0_file: "{output_dir}/{enum_factor}/prior/inputs/train0_{dataset}_{repr}_{fold}.smi"
-  test0_file: "{output_dir}/{enum_factor}/prior/inputs/test0_{dataset}_{repr}_{fold}.smi"
-  carbon_file: "{output_dir}/{enum_factor}/prior/inputs/train0_{dataset}_{repr}_{fold}_carbon.csv.gz"
-  train_all_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_all.smi"
-  test_all_file: "{output_dir}/{enum_factor}/prior/inputs/test_{dataset}_{repr}_all.smi"
-  carbon_all_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_carbon_all.csv.gz"
-  cv_ranks_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_{fold}_CV_ranks_structure.csv.gz"
-  cv_tc_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_{fold}_CV_tc.csv.gz"
-  formula_ranks_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_{fold}_CV_ranks_formula.csv.gz"
-  process_tabulated_output: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_processed_min{min_freq}_{metric}.csv.gz"
-  loss_file: "{output_dir}/{enum_factor}/prior/models/{dataset}_{repr}_{fold}_{train_seed}_loss.csv.gz"
-  tabulate_molecules_output: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz"
-  collect_tabulated_output: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_unique_masses.csv.gz"
-  overall_ranks_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_min{min_freq}_all_{metric}_CV_ranks_structure.csv.gz"
-  overall_tc_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_min{min_freq}_all_{metric}_CV_tc.csv.gz"
-  known_smiles_file: "{output_dir}/{enum_factor}/prior/samples/known_{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz"
-  invalid_smiles_file: "{output_dir}/{enum_factor}/prior/samples/invalid_{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz"
-  collect_known_smiles: "{output_dir}/{enum_factor}/prior/samples/known_{dataset}_{repr}_{fold}_unique_masses.csv.gz"
-  collect_invalid_smiles: "{output_dir}/{enum_factor}/prior/samples/invalid_{dataset}_{repr}_{fold}_unique_masses.csv.gz"
+  preprocess_output: "{output_dir}/prior/raw/{dataset}.txt"  # Processed dataset before augmentation/ training.
+  train_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.smi" # Training file per fold.
+  vocab_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.vocabulary"  # Vocabulary for the tokenized sequences.
+  model_file: "{output_dir}/{enum_factor}/prior/models/{dataset}_{repr}_{fold}_{train_seed}_model.pt"  # Trained RNN model file.
+  input_file: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples.csv.gz"  # Sampled dataset per fold
+  train0_file: "{output_dir}/{enum_factor}/prior/inputs/train0_{dataset}_{repr}_{fold}.smi"  # Unaugmented training dataset per fold.
+  test0_file: "{output_dir}/{enum_factor}/prior/inputs/test0_{dataset}_{repr}_{fold}.smi" # Unaugmented test dataset per fold.
+  carbon_file: "{output_dir}/{enum_factor}/prior/inputs/train0_{dataset}_{repr}_{fold}_carbon.csv.gz" # A file generated by add_carbon rule, inserting carbons at random spots in training SMILES.
+  train_all_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_all.smi" # Training dataset across all folds.
+  test_all_file: "{output_dir}/{enum_factor}/prior/inputs/test_{dataset}_{repr}_all.smi" # Testing dataset across all folds.
+  carbon_all_file: "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_carbon_all.csv.gz" # Aggregated SMILES from add_carbon rule across all folds.
+  cv_ranks_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_{fold}_CV_ranks_structure.csv.gz"  # Top-n candidate SMILES based on matching mass per fold.
+  cv_tc_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_{fold}_CV_tc.csv.gz" # Top-n candidate SMILES based on matching mass including tc per fold.
+  formula_ranks_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_{fold}_CV_ranks_formula.csv.gz" # Top-n candidate SMILES based on matching formula per fold.
+  process_tabulated_output: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_processed_min{min_freq}_{metric}.csv.gz" # Sampled SMILES aggregated across all fold.
+  loss_file: "{output_dir}/{enum_factor}/prior/models/{dataset}_{repr}_{fold}_{train_seed}_loss.csv.gz" # Loss values during training of the model.
+  tabulate_molecules_output: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz" # Novel SMILES per trained model with other descriptors.
+  collect_tabulated_output: "{output_dir}/{enum_factor}/prior/samples/{dataset}_{repr}_{fold}_unique_masses.csv.gz" # Aggregated sampled SMILES from all the trained models in a fold.
+  overall_ranks_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_min{min_freq}_all_{metric}_CV_ranks_structure.csv.gz" # Top-n candidate SMILES based on matching mass across all folds.
+  overall_tc_file: "{output_dir}/{enum_factor}/prior/structural_prior/{dataset}_{repr}_min{min_freq}_all_{metric}_CV_tc.csv.gz" # Top-n candidate SMILES based on matching mass including tc per fold.
+  known_smiles_file: "{output_dir}/{enum_factor}/prior/samples/known_{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz" # Sampled molecules per trained model that appear in training set.
+  invalid_smiles_file: "{output_dir}/{enum_factor}/prior/samples/invalid_{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz" # Invalid molecules sampled per trained model.
+  collect_known_smiles: "{output_dir}/{enum_factor}/prior/samples/known_{dataset}_{repr}_{fold}_unique_masses.csv.gz" # Known sampled molecules  within a fold.
+  collect_invalid_smiles: "{output_dir}/{enum_factor}/prior/samples/invalid_{dataset}_{repr}_{fold}_unique_masses.csv.gz" # Invalid sampled molecules within a fold.
