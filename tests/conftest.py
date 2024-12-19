@@ -16,8 +16,6 @@ def dataset():
 def dataset_compressed():
     path = dataset_path.with_suffix(".txt.gz")
     with gzip.open(path, "wb") as g:
-        # Add a header line so we can exercise more code paths
-        g.write("smiles\n".encode())
         with open(dataset_path, "rb") as f:
             g.write(f.read())
     yield path

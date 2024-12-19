@@ -5,13 +5,10 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
 from rdkit import rdBase
-
-from clm.datasets import SmilesDataset, SelfiesDataset
-from clm.models import RNN
+from clm.models import RNN, ConditionalRNN
 from clm.loggers import EarlyStopping, track_loss, print_update
-from clm.functions import read_file, write_smiles
+from clm.functions import write_smiles, load_dataset
 
 # suppress Chem.MolFromSmiles error output
 rdBase.DisableLog("rdApp.error")
@@ -93,15 +90,35 @@ def add_args(parser):
         "--loss_file", type=str, help="File path to save the training loss data"
     )
 
+    parser.add_argument(
+        "--conditional", action="store_true", help="Activate Conditional RNN model"
+    )
+    parser.add_argument(
+        "--conditional_emb",
+        action="store_true",
+        help="Add descriptor with the input smiles without passing it through an embedding layer",
+    )
+    parser.add_argument(
+        "--conditional_emb_l",
+        action="store_true",
+        help="Pass the descriptors through an embedding layer and add descriptor with the input smiles",
+    )
+    parser.add_argument(
+        "--conditional_dec",
+        action="store_true",
+        help="Add descriptor with the rnn output without passing it through decoder layer",
+    )
+    parser.add_argument(
+        "--conditional_dec_l",
+        action="store_true",
+        help="Pass the descriptors through a decoder layer and add descriptor with the rnn output",
+    )
+    parser.add_argument(
+        "--conditional_h",
+        action="store_true",
+        help="Add descriptor in hidden and cell state",
+    )
     return parser
-
-
-def load_dataset(representation, input_file, vocab_file):
-    inputs = read_file(input_file, smile_only=True)
-    if representation == "SELFIES":
-        return SelfiesDataset(selfies=inputs, vocab_file=vocab_file)
-    else:
-        return SmilesDataset(smiles=inputs, vocab_file=vocab_file)
 
 
 def training_step(batch, model, optim, dataset, batch_size):
@@ -114,11 +131,17 @@ def training_step(batch, model, optim, dataset, batch_size):
     return loss, validation_loss
 
 
-def sample_and_write_smiles(model, sample_mols, batch_size, smiles_file):
+def sample_and_write_smiles(model, sample_mols, batch_size, smiles_file, dataset=None):
     sampled_smiles = []
     with tqdm(total=sample_mols) as pbar:
         while len(sampled_smiles) < sample_mols:
-            new_smiles = model.sample(batch_size, return_smiles=True)
+            descriptors = None
+            if dataset is not None:
+                _, _, descriptors = dataset.get_validation(batch_size)
+                descriptors = descriptors.to(model.device)
+            new_smiles = model.sample(
+                n_sequences=batch_size, return_smiles=True, descriptors=descriptors
+            )
             sampled_smiles.extend(new_smiles)
             pbar.update(len(new_smiles))
     write_smiles(sampled_smiles, smiles_file)
@@ -143,20 +166,43 @@ def train_models_RNN(
     smiles_file,
     model_file,
     loss_file,
+    conditional=False,
+    conditional_emb=False,
+    conditional_emb_l=True,
+    conditional_dec=False,
+    conditional_dec_l=True,
+    conditional_h=False,
 ):
 
     os.makedirs(os.path.dirname(os.path.abspath(model_file)), exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(loss_file)), exist_ok=True)
 
     dataset = load_dataset(representation, input_file, vocab_file)
-    model = RNN(
-        dataset.vocabulary,
-        rnn_type=rnn_type,
-        n_layers=n_layers,
-        embedding_size=embedding_size,
-        hidden_size=hidden_size,
-        dropout=dropout,
-    )
+
+    if conditional:
+        model = ConditionalRNN(
+            dataset.vocabulary,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+            num_descriptors=dataset.n_descriptors,
+            conditional_emb=conditional_emb,
+            conditional_emb_l=conditional_emb_l,
+            conditional_dec=conditional_dec,
+            conditional_dec_l=conditional_dec_l,
+            conditional_h=conditional_h,
+        )
+    else:
+        model = RNN(
+            dataset.vocabulary,
+            rnn_type=rnn_type,
+            n_layers=n_layers,
+            embedding_size=embedding_size,
+            hidden_size=hidden_size,
+            dropout=dropout,
+        )
 
     logger.info(dataset.vocabulary.dictionary)
 
@@ -182,8 +228,14 @@ def train_models_RNN(
                     loop_count,
                     value=[loss.item(), validation_loss.item()],
                 )
+
                 print_update(
-                    model, epoch, batch_no + 1, loss.item(), validation_loss.item()
+                    model,
+                    epoch,
+                    batch_no + 1,
+                    loss.item(),
+                    validation_loss.item(),
+                    dataset=dataset,
                 )
 
             early_stop(validation_loss.item(), model, model_file, loop_count)
@@ -207,7 +259,7 @@ def train_models_RNN(
     model.load_state_dict(torch.load(model_file))
     model.eval()
     if smiles_file:
-        sample_and_write_smiles(model, sample_mols, batch_size, smiles_file)
+        sample_and_write_smiles(model, sample_mols, batch_size, smiles_file, dataset)
 
 
 def main(args):
@@ -230,4 +282,10 @@ def main(args):
         smiles_file=args.smiles_file,
         model_file=args.model_file,
         loss_file=args.loss_file,
+        conditional=args.conditional,
+        conditional_emb=args.conditional_emb,
+        conditional_emb_l=args.conditional_emb_l,
+        conditional_dec=args.conditional_dec,
+        conditional_dec_l=args.conditional_dec_l,
+        conditional_h=args.conditional_h,
     )

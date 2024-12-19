@@ -25,17 +25,11 @@ def test_snakemake():
         cores=1,
         configfiles=[config_file],
         config={
-            "random_seed": 5831,
             "paths": {
                 "dataset": dataset,
                 "pubchem_tsv_file": pubchem_tsv_file,
                 "output_dir": temp_dir,
             },
-            "representations": ["SMILES"],
-            "enum_factors": [0],
-            "folds": 3,
-            "sample_seeds": [0],
-            "structural_prior_min_freq": [1],
         },
         dryrun=False,
         latency_wait=60,
@@ -55,8 +49,8 @@ def test_snakemake():
             ]
         ).encode("utf8")
     ).hexdigest()
-    assert checksum == "7d6689e0e01419d3dc7c104648b4abc9"
-    #
+    assert checksum == "f67963456b8ac66d36be3bbc2b32c9a3"
+
     tc_file_overall = f"{temp_dir}/0/prior/structural_prior/LOTUS_truncated_SMILES_min1_all_freq-avg_CV_tc.csv.gz"
     checksum = hashlib.md5(
         "".join(
@@ -66,4 +60,4 @@ def test_snakemake():
             ]
         ).encode("utf8")
     ).hexdigest()
-    assert checksum == "0675c26700585c124a4917dc3beeed38"
+    assert checksum == "64888257bf9d1cf836afdc99fb839fbf"

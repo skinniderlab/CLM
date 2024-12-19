@@ -157,8 +157,15 @@ def get_dataframes(train_file, prep_sample_df):
     valid_data = prep_sample_df[prep_sample_df["is_valid"]].progress_apply(
         lambda x: smile_properties_dataframe(x, is_sample=True), axis=1
     )
-    valid_df = pd.concat(valid_data.to_list())
-    invalid_df = prep_sample_df[~(prep_sample_df["is_valid"])]
+    if valid_data.empty:
+        valid_df = prep_sample_df.iloc[:0]  # empty
+    else:
+        valid_df = pd.concat(valid_data.to_list())
+
+    if len(valid_data) == len(prep_sample_df):
+        invalid_df = prep_sample_df.iloc[:0]  # empty
+    else:
+        invalid_df = prep_sample_df[~(prep_sample_df["is_valid"])]
 
     # Concatenate valid and invalid dfs for computations later
     sample_df = pd.concat([valid_df, invalid_df])
@@ -300,7 +307,8 @@ def calculate_outcomes_dataframe(sample_df, train_df):
 
     # Have 'bin' as a column and each of our other columns as rows in an
     # 'outcome' column, with values in a 'value' column
-    out = out.melt(id_vars=["bin"], var_name="outcome", value_name="value")
+    if not out.empty:
+        out = out.melt(id_vars=["bin"], var_name="outcome", value_name="value")
     return out
 
 
