@@ -24,7 +24,7 @@ jobs:
         run: |
           pip install sphinx myst-parser sphinxcontrib-bibtex sphinx-rtd-theme myst-parser
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Envvars
         run: |

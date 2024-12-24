@@ -60,7 +60,6 @@ rule calculate_outcomes:
     `max_molecules` is the max number of sampled smiles to consider for each
     frequency bin.
     """
-    conda: "clm"
     input:
         sampled_file=config['paths']['collect_tabulated_output'],
         known_smiles=config['paths']['collect_known_smiles'],
@@ -83,7 +82,6 @@ rule calculate_outcomes:
 
 
 rule plot_calculate_outcomes:
-    conda: "clm"
     input:
         expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_{fold}_calculate_outcomes.csv.gz",
             dataset=DATASET, repr=REPRESENTATIONS, fold=range(FOLDS), allow_missing=True)
@@ -100,7 +98,6 @@ rule plot_calculate_outcomes:
 
 
 rule write_nn_tc:
-    conda: "clm"
     input:
         query_file=config['paths']['collect_tabulated_output'],
         reference_file=config['paths']['train0_file'],
@@ -121,7 +118,6 @@ rule write_nn_tc:
 
 
 rule plot_write_nn_tc:
-    conda: "clm"
     input:
         expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_{fold}_write_nn_tc.csv.gz",
             dataset=DATASET, repr=REPRESENTATIONS, fold=range(FOLDS), allow_missing=True)
@@ -139,7 +135,6 @@ rule plot_write_nn_tc:
 
 
 rule train_discriminator:
-    conda: "clm"
     input:
         train_file=config['paths']['train0_file'],
         sampled_file=config['paths']['collect_tabulated_output']
@@ -157,7 +152,6 @@ rule train_discriminator:
 
 
 rule plot_train_discriminator:
-    conda: "clm"
     input:
         expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_{fold}_train_discriminator.csv.gz",
             dataset=DATASET, repr=REPRESENTATIONS, fold=range(FOLDS), allow_missing=True)
@@ -174,7 +168,6 @@ rule plot_train_discriminator:
 
 
 rule freq_distribution:
-    conda: "clm"
     input:
         sampled_file=config['paths']['collect_tabulated_output'],
         test_file=config['paths']['test0_file'],
@@ -192,7 +185,6 @@ rule freq_distribution:
 
 
 rule plot_freq_distribution:
-    conda: "clm"
     input:
         expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_{fold}_freq_distribution.csv.gz",
             dataset=DATASET, repr=REPRESENTATIONS, fold=range(FOLDS), allow_missing=True)
@@ -209,7 +201,6 @@ rule plot_freq_distribution:
 
 
 rule calculate_outcome_distrs:
-    conda: "clm"
     input:
         sample_file=config['paths']['collect_tabulated_output'],
         train_file=config['paths']['train0_file'],
@@ -230,7 +221,6 @@ rule calculate_outcome_distrs:
 
 
 rule plot_outcome_distributions:
-    conda: "clm"
     input:
         expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_{fold}_calculate_outcome_distrs.csv.gz",
             dataset=DATASET, repr=REPRESENTATIONS, fold=range(FOLDS), allow_missing=True)
@@ -246,7 +236,6 @@ rule plot_outcome_distributions:
         '--output_dir {output} '
 
 rule nn_tc_ever_v_never:
-    conda: "clm"
     input:
         query_file=config['paths']['test0_file'],
         reference_file=config['paths']['train0_file']
@@ -264,7 +253,6 @@ rule nn_tc_ever_v_never:
 
 
 rule plot_nn_tc_ever_v_never:
-    conda: "clm"
     input:
         nn_tc_file = expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_{fold}_nn_tc_ever_v_never.csv.gz",
             dataset=DATASET, repr=REPRESENTATIONS, fold=range(FOLDS), allow_missing=True),
@@ -286,7 +274,6 @@ rule plot_nn_tc_ever_v_never:
         '--output_dir {output} '
 
 rule plot_topk_tc:
-    conda: "clm"
     input:
         expand(config['paths']['overall_tc_file'],
             min_freq=1, metric='freq-avg', dataset=DATASET, repr=REPRESENTATIONS, allow_missing=True)
@@ -303,7 +290,6 @@ rule plot_topk_tc:
 
 
 rule forecast:
-    conda: "clm"
     input:
         test_file=config['paths']['test_all_file'],
         sample_file=expand(config['paths']['process_tabulated_output'],
@@ -322,7 +308,6 @@ rule forecast:
 
 
 rule plot_forecast:
-    conda: "clm"
     input:
         expand("{output_dir}/model_evaluation/{enum_factor}/{dataset}_{repr}_forecast.csv",
             dataset=DATASET, repr=REPRESENTATIONS, allow_missing=True)
@@ -339,7 +324,6 @@ rule plot_forecast:
 
 
 rule plot_topk:
-    conda: "clm"
     input:
         rank_file=expand(config['paths']['overall_ranks_file'],
             min_freq=1, metric='freq-avg', dataset=DATASET, repr=REPRESENTATIONS, allow_missing=True),

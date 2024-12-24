@@ -26,6 +26,9 @@ dependencies = [
     "scikit-learn",
     "scipy==1.11.1",
     "selfies",
+    # snakemake->stopit needs pkg_resources, but is failing
+    # to specify setuptools as a dependency
+    "setuptools",
     "snakemake",
     "torch",
     "tqdm",

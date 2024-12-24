@@ -52,7 +52,6 @@ rule preprocess:
     neutralizing charges, filtering for valid elements
     removing rare tokens in the smiles vocabulary.
     """
-    conda: "clm"
     input:
         PATHS["dataset"]
     output:
@@ -75,7 +74,6 @@ rule create_training_sets:
     Optionally takes in a min_tc parameter to only consider smiles that
     are similar to a randomly selected seed smile.
     """
-    conda: "clm"
     input:
         config['paths']['preprocess_output']
     output:
@@ -107,7 +105,6 @@ rule add_carbon:
     Insert character 'C' - representing carbon atom - at a random point in
     training set SMILES.
     """
-    conda: "clm"
     input:
         train0_file = PATHS['train0_file']
     output:
@@ -129,7 +126,6 @@ rule collapse_train_test_data:
     `create_training_sets` was > 0, otherwise we might as well use the output
     file from `preprocess` in both cases.
     """
-    conda: "clm"
     input:
         train_file = expand(PATHS['train0_file'], fold=range(FOLDS), allow_missing=True),
         test_file = expand(PATHS['test0_file'], fold=range(FOLDS), allow_missing=True),
@@ -155,7 +151,6 @@ rule train_models_RNN:
     Write out the model file and loss file. Optionally sample a small set of
     smiles and write them out to `smiles_file`.
     """
-    conda: "clm"
     input:
         input_file = PATHS['train_file'],
         vocab_file = PATHS['vocab_file']
@@ -198,7 +193,6 @@ rule sample_molecules_RNN:
     Sample `sample_mols` smiles from a trained model and fold, and save to
     `output_file`.
     """
-    conda: "clm"
     input:
         model_file = PATHS['model_file'],
         vocab_file = PATHS['vocab_file'],
@@ -237,7 +231,6 @@ rule tabulate_molecules:
     frequency. Filter out smiles that are found in `train_file`, based on a
     comparison of InchiKeys.
     """
-    conda: "clm"
     input:
         input_file = PATHS['input_file'],
         train_file = PATHS['train0_file']
@@ -262,7 +255,6 @@ rule collect_tabulated_molecules:
     Aggregate sampled smiles from all samples obtained in a fold, adding
     sampling frequency in the process.
     """
-    conda: "clm"
     input:
         input_files=expand(PATHS['tabulate_molecules_output'], train_seed=TRAIN_SEEDS, sample_seed=SAMPLE_SEEDS, allow_missing=True),
         known_smiles_file = expand(PATHS['known_smiles_file'], train_seed=TRAIN_SEEDS, sample_seed=SAMPLE_SEEDS, allow_missing=True),
@@ -295,7 +287,6 @@ rule process_tabulated_molecules:
     but now `size` has a different interpretation than simply the frequency
     of occurrence.
     """
-    conda: "clm"
     input:
         input_file=expand(PATHS['collect_tabulated_output'], fold=range(FOLDS), allow_missing=True),
         cv_file=expand(PATHS['train0_file'], fold=range(FOLDS), allow_missing=True)
@@ -338,7 +329,6 @@ rule write_structural_prior_CV:
 
     Fingerprint similarity values are written out to `tc_file`.
     """
-    conda: "clm"
     input:
         train_file = PATHS['train0_file'],
         test_file = PATHS['test0_file'],
@@ -381,7 +371,6 @@ rule write_formula_prior_CV:
 
     This output is written to `ranks_file`.
     """
-    conda: "clm"
     input:
         train_file = PATHS['train0_file'],
         test_file = PATHS['test0_file'],
@@ -422,7 +411,6 @@ rule write_structural_prior_CV_overall:
 
     Fingerprint similarity values are written out to `tc_file`.
     """
-    conda: "clm"
     input:
         train_file = PATHS['train_all_file'],
         test_file = PATHS['test_all_file'],

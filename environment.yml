@@ -1,7 +1,12 @@
+# Note: `clm` does not use any dependency from any conda channel at all.
+# This file is provided as a convenience for users and CI workflows
+# used to working with conda environments.
+
 name: 'clm'
 
 channels:
-  - defaults
+  - conda-forge
+  - nodefaults
 
 dependencies:
   - python=3.10
