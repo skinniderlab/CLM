@@ -10,6 +10,8 @@ from clm.functions import read_file, write_smiles, clean_mols
 from clm.datasets import vocabulary_from_representation
 from clm.util.SmilesEnumerator import SmilesEnumerator
 
+import os
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,18 @@ def add_args(parser):
         default=None,
         help="Maximum smiles to read from input file (useful for testing)",
     )
+    parser.add_argument(
+        "--num-aug-neighbors",
+        type=int,
+        default=0,
+        help="Number of augmented neighbors to add to training set",
+    )
+    parser.add_argument(
+        "--min-tc-neighbors",
+        type=float,
+        default=0,
+        help="Minimum Tanimoto Coefficient for augmented neighbors",
+    )
 
     return parser
 
@@ -146,6 +160,144 @@ def get_similar_smiles(
     return subset_smiles
 
 
+# def create_training_sets(
+#     input_file=None,
+#     train0_file=None,
+#     train_file=None,
+#     test0_file=None,
+#     vocab_file=None,
+#     folds=10,
+#     which_fold=0,
+#     enum_factor=0,
+#     representation="SMILES",
+#     min_tc=0,
+#     n_molecules=100,
+#     max_tries=200,
+#     max_input_smiles=None,
+# ):
+#     logger.info("reading input SMILES ...")
+#     data = read_file(
+#         smiles_file=input_file, smile_only=True, max_lines=max_input_smiles
+#     )
+#     smiles = data["smiles"]
+
+#     if min_tc > 0:
+#         logger.info(f"picking {n_molecules} molecules with min_tc={min_tc} ...")
+#         smiles = get_similar_smiles(
+#             smiles,
+#             min_tc=min_tc,
+#             n_molecules=n_molecules,
+#             max_tries=max_tries,
+#             representation=representation,
+#         )
+
+#     generate_test_data = folds > 0
+#     if generate_test_data:
+#         np.random.shuffle(smiles)
+#         folds = np.array_split(smiles, folds)
+#     else:
+#         folds = [smiles]
+
+#     if enum_factor > 0:
+#         enum_folds = [np.array([]) for i in range(len(folds))]
+#         sme = SmilesEnumerator(canonical=False, enum=True)
+#         for idx, fold in enumerate(folds):
+#             enum = []
+#             max_tries = 200  # randomized SMILES to generate for each input structure
+#             for sm_idx, sm in enumerate(tqdm(fold)):
+#                 tries = []
+#                 for try_idx in range(max_tries):
+#                     try:
+#                         this_try = sme.randomize_smiles(sm)
+#                         tries.append(this_try)
+#                         tries = [rnd for rnd in np.unique(tries)]
+#                         if len(tries) > enum_factor:
+#                             tries = tries[:enum_factor]
+#                             break
+#                     except AttributeError:
+#                         continue
+#                 enum.extend(tries)
+#             enum_folds[idx] = enum
+#     else:
+#         enum_folds = folds
+
+#     if generate_test_data:
+#         test0 = folds[which_fold]
+#         test = enum_folds[which_fold]
+#         train0 = folds[:which_fold] + folds[which_fold + 1 :]
+#         train0 = list(itertools.chain.from_iterable(train0))
+#         train = enum_folds[:which_fold] + enum_folds[which_fold + 1 :]
+#         train = list(itertools.chain.from_iterable(train))
+#     else:
+#         train0 = folds[0]
+#         train = enum_folds[0]
+#         test0 = None
+#         test = None
+
+#     if representation == "SELFIES":
+#         logger.info("converting SMILES strings to SELFIES ...")
+
+#         train0_out = []
+#         for sm in train0:
+#             try:
+#                 sf = selfies_encoder(sm)
+#                 train0_out.append(sf)
+#             except EncoderError:
+#                 pass
+#         train0 = train0_out
+
+#         train_out = []
+#         for sm in train:
+#             try:
+#                 sf = selfies_encoder(sm)
+#                 train_out.append(sf)
+#             except EncoderError:
+#                 pass
+#         train = train_out
+
+#         if test0 is not None:
+#             test0_out = []
+#             for sm in test0:
+#                 try:
+#                     sf = selfies_encoder(sm)
+#                     test0_out.append(sf)
+#                 except EncoderError:
+#                     pass
+#             test0 = test0_out
+
+#         if test is not None:
+#             test_out = []
+#             for sm in test:
+#                 try:
+#                     sf = selfies_encoder(sm)
+#                     test_out.append(sf)
+#                 except EncoderError:
+#                     pass
+#             test = test_out
+
+#     write_smiles(
+#         train0,
+#         str(train0_file).format(fold=which_fold),
+#         add_inchikeys=True,
+#         extra_data=data,
+#     )
+#     write_smiles(
+#         train,
+#         str(train_file).format(fold=which_fold),
+#         add_inchikeys=True,
+#         extra_data=data,
+#     )
+#     vocabulary = vocabulary_from_representation(representation, train)
+#     logger.info("vocabulary of {} characters".format(len(vocabulary)))
+#     vocabulary.write(output_file=str(vocab_file).format(fold=which_fold))
+#     if test0 is not None:
+#         write_smiles(
+#             test0,
+#             str(test0_file).format(fold=which_fold),
+#             add_inchikeys=True,
+#             extra_data=data,
+#         )
+
 def create_training_sets(
     input_file=None,
     train0_file=None,
@@ -160,6 +312,8 @@ def create_training_sets(
     n_molecules=100,
     max_tries=200,
     max_input_smiles=None,
+    num_aug_neighbors=0,
+    min_tc_neighbors=0
 ):
     logger.info("reading input SMILES ...")
     data = read_file(
@@ -184,82 +338,96 @@ def create_training_sets(
     else:
         folds = [smiles]
 
-    if enum_factor > 0:
-        enum_folds = [np.array([]) for i in range(len(folds))]
-        sme = SmilesEnumerator(canonical=False, enum=True)
-        for idx, fold in enumerate(folds):
-            enum = []
-            max_tries = 200  # randomized SMILES to generate for each input structure
-            for sm_idx, sm in enumerate(tqdm(fold)):
-                tries = []
-                for try_idx in range(max_tries):
-                    try:
-                        this_try = sme.randomize_smiles(sm)
-                        tries.append(this_try)
-                        tries = [rnd for rnd in np.unique(tries)]
-                        if len(tries) > enum_factor:
-                            tries = tries[:enum_factor]
-                            break
-                    except AttributeError:
-                        continue
-                enum.extend(tries)
-            enum_folds[idx] = enum
-    else:
-        enum_folds = folds
+    import glob
+    from rdkit import rdBase, Chem
+    from rdkit.Chem import rdFingerprintGenerator
+    from rdkit.DataStructs import TanimotoSimilarity
+
+    # set working directory
+    import sys
+    sys.path.append("/Genomics/skinniderlab/spavelites/git/PED-generation/python")
+    import functions
+
+    in_dir = "/Genomics/skinniderlab/spavelites/git/PED-generation/outputs/pubchem/all_splits_pr"
+    csv_files = glob.glob(os.path.join(in_dir, "*.csv"))
+    big_data = []
+    top_n = num_aug_neighbors
+    min_tc_2 = min_tc_neighbors/100 #min_tc taking as another variable to avoid confusion
+
+    gen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
+    for f in tqdm(csv_files, desc="Processing CSV files"): # REMOVE [:3] POST TESTING!!!!
+        df = pd.read_csv(f).head(3)
+        df["neighbor_smiles"] = df["neighbor_smiles"].apply(lambda x: functions.preprocess_mol(x)[1] if pd.notnull(x) else None)
+        df = df[df["neighbor_smiles"] != df["target_smiles"]]
+        if df.empty:
+            continue
+        tfp = gen.GetFingerprint(Chem.MolFromSmiles(df["target_smiles"].iloc[0]))
+        df["tanimoto"] = [
+            TanimotoSimilarity(tfp, gen.GetFingerprint(Chem.MolFromSmiles(smi)))
+            for smi in df["neighbor_smiles"]
+        ]
+        # df = df[df["tanimoto"] < 1.0].dropna().head(top_n)
+        df = df[(df["tanimoto"] >= min_tc_2) & (df["tanimoto"] < 1.0)].dropna().head(top_n)
+        lines = df["neighbor_smiles"].tolist()
+        if not df.empty:
+            row = [df["target_smiles"].iloc[0]] + lines
+            big_data.append(row)
+
+    col_names = ["target_smiles"] + [f"neighbor_smiles_{i+1}" for i in range(top_n)]
+    big_df = pd.DataFrame(big_data, columns=col_names)
+    print(big_df.head())
 
     if generate_test_data:
         test0 = folds[which_fold]
-        test = enum_folds[which_fold]
+        test = folds[which_fold]
         train0 = folds[:which_fold] + folds[which_fold + 1 :]
         train0 = list(itertools.chain.from_iterable(train0))
-        train = enum_folds[:which_fold] + enum_folds[which_fold + 1 :]
-        train = list(itertools.chain.from_iterable(train))
+        # add neighbor_smiles from big_df for matching target_smiles in train0
+        train0_extended = []
+        for sm in train0:
+            train0_extended.append(sm)
+            matched_rows = big_df[big_df["target_smiles"] == sm]
+            if not matched_rows.empty:
+                for _, row in matched_rows.iterrows():
+                    neighbor_cols = [c for c in row.index if c.startswith("neighbor_smiles_")]
+                    neighbors = [row[c] for c in neighbor_cols if pd.notnull(row[c])]
+                    train0_extended.extend(neighbors)
+        train0 = train0_extended
+
+        train = train0
+
+    else:
+        train0 = folds[0]
+        train = folds[0]
+        test0 = None
+        test = None
+
+    # now incorporate enumeration if enum_factor > 0
+    if enum_factor > 0:
+        sme = SmilesEnumerator(canonical=False, enum=True)
+
+        augmented_train = []
+        for sm_idx, sm in enumerate(tqdm(train)):
+            tries = []
+            for _ in range(200):
+                try:
+                    this_try = sme.randomize_smiles(sm)
+                    tries.append(this_try)
+                    tries = [rnd for rnd in np.unique(tries)]
+                    if len(tries) >= enum_factor:
+                        break
+                except AttributeError:
+                    continue
+            augmented_train.extend(tries)
+        train = augmented_train
+
+
+
     else:
         train0 = folds[0]
         train = enum_folds[0]
         test0 = None
         test = None
-
-    if representation == "SELFIES":
-        logger.info("converting SMILES strings to SELFIES ...")
-
-        train0_out = []
-        for sm in train0:
-            try:
-                sf = selfies_encoder(sm)
-                train0_out.append(sf)
-            except EncoderError:
-                pass
-        train0 = train0_out
-
-        train_out = []
-        for sm in train:
-            try:
-                sf = selfies_encoder(sm)
-                train_out.append(sf)
-            except EncoderError:
-                pass
-        train = train_out
-
-        if test0 is not None:
-            test0_out = []
-            for sm in test0:
-                try:
-                    sf = selfies_encoder(sm)
-                    test0_out.append(sf)
-                except EncoderError:
-                    pass
-            test0 = test0_out
-
-        if test is not None:
-            test_out = []
-            for sm in test:
-                try:
-                    sf = selfies_encoder(sm)
-                    test_out.append(sf)
-                except EncoderError:
-                    pass
-            test = test_out
 
     write_smiles(
         train0,
@@ -300,4 +468,6 @@ def main(args):
         n_molecules=args.n_molecules,
         max_tries=args.max_tries,
         max_input_smiles=args.max_input_smiles,
+        num_aug_neighbors=args.num_aug_neighbors,
+        min_tc_neighbors=args.min_tc_neighbors
     )

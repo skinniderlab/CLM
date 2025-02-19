@@ -102,6 +102,8 @@ rule create_training_sets:
         '--min-tc {config[min_tc]} '
         '--seed {config[random_seed]} '
         '--max-input-smiles {config[max_input_smiles]} '
+        '--num-aug-neighbors {config[num_aug_neighbors]} '
+        '--min-tc-neighbors {config[min_tc_neighbors]} '
 
 
 rule add_carbon:

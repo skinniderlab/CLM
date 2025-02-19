@@ -171,18 +171,24 @@ def sample_molecules_RNN(
             n_sequences = min(batch_size, sample_mols - i)
             descriptors = None
             if heldout_dataset is not None:
+                max_idx = len(heldout_dataset)
+                n_sequences = min(n_sequences, max_idx - i)
+                if n_sequences <= 0:
+                    break
                 descriptors = torch.stack(
                     [heldout_dataset[_i][1] for _i in range(i, i + n_sequences)]
-                )
-                descriptors = descriptors.to(model.device)
+                ).to(model.device)
+
             sampled_smiles, losses = model.sample(
                 descriptors=descriptors, n_sequences=n_sequences, return_losses=True
             )
-            df = pd.DataFrame(zip(losses, sampled_smiles), columns=["loss", "smiles"])
+            df_dict = {"loss": losses, "smiles": sampled_smiles}
+            if descriptors is not None:
+                df_dict["descriptors"] = descriptors.cpu().numpy().tolist()
+            df = pd.DataFrame(df_dict)
 
             write_to_csv_file(output_file, mode="w" if i == 0 else "a+", info=df)
-
-            pbar.update(batch_size)
+            pbar.update(n_sequences)
 
 
 def main(args):
