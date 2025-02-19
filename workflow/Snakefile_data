@@ -64,7 +64,11 @@ rule preprocess:
         '--seed {config[random_seed]} '
         '--input-file {input} '
         '--output-file {output} '
+        '--min-heavy-atoms {config[preprocess][min_heavy_atoms]} '
+        '--valid-atoms {config[preprocess][valid_atoms]} '
         '--max-input-smiles {config[max_input_smiles]} '
+        f'{"--no_neutralise " if not config["preprocess"]["neutralise"] else ""} '
+        f'{"--remove-rare " if config["preprocess"]["remove_rare"] else ""} '
 
 
 rule create_training_sets:

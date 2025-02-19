@@ -46,6 +46,18 @@ enum_factors:
 #  Limits the maximum number of input SMILES to be read from the original dataset. 0 means there's no limit.
 max_input_smiles: 0
 
+# A dictionary defining the arguments to be passed to the preprocess command.
+preprocess:
+  # Specifies the minimum number of heavy atoms that a valid molecule should have.
+  min_heavy_atoms: 3
+  # Defines the set of elements required for a molecule to be considered valid.
+  # Any SMILES containing elements outside this set will be considered invalid and excluded from the training set.
+  valid_atoms: [Br, C, Cl, F, H, I, N, O, P, S]
+  # Specifies whether the charges in the training SMILES should be neutralized.
+  neutralise: true
+  # Specifies whether to remove training SMILES representing molecules with tokens found in less than 0.01% of samples or fewer than 10 molecules.
+  remove_rare: false
+
 # Parameters that define the neural network model and training process.
 model_params:
   # Type of Recurrent Neural Network (RNN) to use.
@@ -126,7 +138,6 @@ err_ppm: 10
 # Specifies minimum frequency thresholds for inclusion.
 # Each value represents the minimum number of times a molecule must be generated
 # across all folds to be considered for further evaluation.
-
 structural_prior_min_freq:
   - 1
   - 2
