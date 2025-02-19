@@ -45,6 +45,9 @@ preprocess:
   neutralise: true
   # Specifies whether to remove training SMILES representing molecules with tokens found in less than 0.01% of samples or fewer than 10 molecules.
   remove_rare: false
+  # Specifies whether to remove duplicate SMILES from the training set, identifying duplicates by inchikey.
+  keep_duplicates: true
+
 
 # Parameters that define the neural network model and training process.
 model_params:

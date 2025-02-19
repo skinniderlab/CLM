@@ -86,6 +86,34 @@ def test_00_preprocess_no_filter(tmp_path):
     # So, under lax conditions, no SMILES should be excluded during the preprocessing step
     input_file = base_dir / "tests/test_data/smiles.csv"
     preprocess.preprocess(
+        input_file=base_dir / "tests/test_data/smiles.csv",
+        output_file=tmp_path / "preprocessed.smi",
+        max_input_smiles=0,
+        min_heavy_atoms=0,
+        neutralise=False,
+        # These are the unique elements found in the molecules listed in the input file
+        valid_atoms=["Br", "C", "Cl", "F", "I", "N", "O", "P", "S", "Se", "Si"],
+    )
+    generated = (
+        pd.read_csv(tmp_path / "preprocessed.smi")[["smiles", "inchikey"]]
+        .sort_values("inchikey")
+        .reset_index(drop=True)
+    )
+    # We are testing the input file against the original one to ensure no SMILES are inadvertently filtered out
+    oracle = (
+        pd.read_csv(input_file)[["smiles", "inchikey"]]
+        .sort_values("inchikey")
+        .reset_index(drop=True)
+    )
+    pd.testing.assert_frame_equal(generated, oracle)
+
+
+def test_00_preprocess_keep_duplicates(tmp_path):
+    # All SMILES in this file are valid but have duplications
+    # Under relaxed conditions, and when the keep_duplicates
+    # flag is set to true, no SMILES should be excluded during the preprocessing step
+    input_file = base_dir / "tests/test_data/clean_smiles.csv"
+    preprocess.preprocess(
         input_file=input_file,
         output_file=tmp_path / "preprocessed.smi",
         max_input_smiles=0,
@@ -93,6 +121,7 @@ def test_00_preprocess_no_filter(tmp_path):
         neutralise=False,
         # These are the unique elements found in the molecules listed in the input file
         valid_atoms=["Br", "C", "Cl", "F", "I", "N", "O", "P", "S", "Se", "Si"],
+        keep_duplicates=True,
     )
     generated = (
         pd.read_csv(tmp_path / "preprocessed.smi")[["smiles", "inchikey"]]
