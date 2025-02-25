@@ -47,6 +47,12 @@ def add_args(parser):
         default=None,
         help="Maximum input smiles to read (useful for testing)",
     )
+    parser.add_argument(
+        "--keep_duplicates",
+        action="store_true",
+        help="Specifies whether to remove duplicate SMILES from the training set, "
+        "identifying duplicates by inchikey. (default False)",
+    )
 
     return parser
 
@@ -59,6 +65,7 @@ def preprocess(
     min_heavy_atoms=3,
     valid_atoms=None,
     remove_rare=False,
+    keep_duplicates=False,
 ):
     logger.info("reading input SMILES ...")
 
@@ -97,7 +104,10 @@ def preprocess(
     data["inchikey"] = data.apply(
         lambda row: Chem.inchi.MolToInchiKey(row["mol"]) if row["mol"] else None, axis=1
     )
-    data.drop_duplicates(subset="inchikey", inplace=True)
+
+    if not keep_duplicates:
+        data.drop_duplicates(subset="inchikey", inplace=True)
+
     data["smiles"] = data.apply(
         lambda row: Chem.MolToSmiles(row["mol"]) if row["mol"] else None, axis=1
     )
@@ -128,4 +138,5 @@ def main(args):
         min_heavy_atoms=args.min_heavy_atoms,
         valid_atoms=args.valid_atoms,
         remove_rare=args.remove_rare,
+        keep_duplicates=args.keep_duplicates,
     )
