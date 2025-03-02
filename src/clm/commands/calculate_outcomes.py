@@ -101,7 +101,10 @@ molecular_properties = {
 def smile_properties_dataframe(a_row, is_sample=False):
     data = []
     if (mol := clean_mol(a_row.smiles, raise_error=False)) is not None:
-        row = tuple(fun(mol) for fun in molecular_properties.values())
+        try:
+            row = tuple(fun(mol) for fun in molecular_properties.values())
+        except Exception:
+            row = tuple([None] * len(molecular_properties))
     else:
         row = tuple([None] * len(molecular_properties))
 
