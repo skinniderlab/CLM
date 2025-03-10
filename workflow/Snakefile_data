@@ -68,7 +68,7 @@ rule preprocess:
         '--valid-atoms {config[preprocess][valid_atoms]} '
         '--max-input-smiles {config[max_input_smiles]} '
         f'{"--keep_duplicates" if config["preprocess"]["keep_duplicates"] else ""}'
-        f'{"--no_neutralise " if not config["preprocess"]["neutralise"] else ""} '
+        f'{"--no-neutralise " if not config["preprocess"]["neutralise"] else ""} '
         f'{"--remove-rare " if config["preprocess"]["remove_rare"] else ""} '
 
 
