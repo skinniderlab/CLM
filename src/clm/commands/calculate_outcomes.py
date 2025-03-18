@@ -75,6 +75,13 @@ def safe_sascorer(mol):
         return None
 
 
+def murcko_scaffold_smiles(mol):
+    try:
+        return MurckoScaffoldSmiles(mol=mol)
+    except Chem.rdchem.AtomValenceException:
+        return None
+
+
 molecular_properties = {
     "canonical_smile": Chem.MolToSmiles,
     "elements": lambda mol: [atom.GetSymbol() for atom in mol.GetAtoms()],
@@ -91,7 +98,7 @@ molecular_properties = {
     "sp3": Lipinski.FractionCSP3,
     "rot": pct_rotatable_bonds,
     "stereo": pct_stereocenters,
-    "murcko": lambda mol: MurckoScaffoldSmiles(mol=mol),
+    "murcko": murcko_scaffold_smiles,
     "donors": Lipinski.NumHDonors,
     "acceptors": Lipinski.NumHAcceptors,
     "fps": compute_fingerprint,
@@ -100,12 +107,12 @@ molecular_properties = {
 
 def smile_properties_dataframe(a_row, is_sample=False):
     data = []
+
+    row = [None]
     if (mol := clean_mol(a_row.smiles, raise_error=False)) is not None:
-        try:
-            row = tuple(fun(mol) for fun in molecular_properties.values())
-        except Exception:
-            row = tuple([None] * len(molecular_properties))
-    else:
+        row = tuple(fun(mol) for fun in molecular_properties.values())
+
+    if None in row:
         row = tuple([None] * len(molecular_properties))
 
     if is_sample:
