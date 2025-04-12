@@ -11,8 +11,8 @@ as used in the manuscript, :cite:t:`Qiang2024`.
 
 Note that training and evaluating chemical language models requires significant
 computational resources. Running the default `config.yaml` file distributed
-with the repository, for example, will submit a total of 2102 jobs, with a
-total requested runtime of >75,000 hours and a maximum memory of 256 GB.
+with the repository, for example, will submit a total of 2102 jobs, with an
+average requested runtime of ~35 hours per job and a maximum memory of 256 GB.
 Actual runtimes will generally be substantially below this (but, for unusually
 large datasets, may be longer and require modification of the default resource
 requests), and resource requirements will vary substantially as a function of
