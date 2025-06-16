@@ -152,7 +152,7 @@ def create_training_sets(
     train_file=None,
     test0_file=None,
     vocab_file=None,
-    folds=10,
+    n_folds=10,
     which_fold=0,
     enum_factor=0,
     representation="SMILES",
@@ -177,10 +177,15 @@ def create_training_sets(
             representation=representation,
         )
 
-    generate_test_data = folds > 0
+    generate_test_data = n_folds > 0
     if generate_test_data:
         np.random.shuffle(smiles)
-        folds = np.array_split(smiles, folds)
+        # Split array into two halves if folds is set to 1 (for train and test set)
+        folds = (
+            np.array_split(smiles, n_folds)
+            if n_folds > 1
+            else np.array_split(smiles, 2)
+        )
     else:
         folds = [smiles]
 
@@ -210,9 +215,16 @@ def create_training_sets(
     if generate_test_data:
         test0 = folds[which_fold]
         test = enum_folds[which_fold]
-        train0 = folds[:which_fold] + folds[which_fold + 1 :]
+        # When running a single fold, use the second half of the data split as the training set
+        train0 = (
+            folds[:which_fold] + folds[which_fold + 1 :] if n_folds > 1 else folds[:-1]
+        )
         train0 = list(itertools.chain.from_iterable(train0))
-        train = enum_folds[:which_fold] + enum_folds[which_fold + 1 :]
+        train = (
+            enum_folds[:which_fold] + enum_folds[which_fold + 1 :]
+            if n_folds > 1
+            else enum_folds[:-1]
+        )
         train = list(itertools.chain.from_iterable(train))
     else:
         train0 = folds[0]
@@ -292,7 +304,7 @@ def main(args):
         train_file=args.train_file,
         test0_file=args.test0_file,
         vocab_file=args.vocab_file,
-        folds=args.folds,
+        n_folds=args.folds,
         which_fold=args.which_fold,
         enum_factor=args.enum_factor,
         representation=args.representation,
