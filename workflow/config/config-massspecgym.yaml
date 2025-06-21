@@ -40,7 +40,7 @@ preprocess:
   min_heavy_atoms: 3
   # Defines the set of elements required for a molecule to be considered valid.
   # Any SMILES containing elements outside this set will be considered invalid and excluded from the training set.
-  valid_atoms: [Br, C, Cl, F, H, I, N, O, P, S]
+  valid_atoms: [Br, C, Cl, F, H, I, N, O, P, S, Se, Si, B, As]
   # Specifies whether the charges in the training SMILES should be neutralized.
   neutralise: false
   # Specifies whether to remove training SMILES representing molecules with tokens found in less than 0.01% of samples or fewer than 10 molecules.
