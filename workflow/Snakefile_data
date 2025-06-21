@@ -33,7 +33,7 @@ wildcard_constraints:
 
 rule all:
     output:
-        output_file=PATHS['process_tabulated_output']
+        PATHS['process_tabulated_output']
         
 
 rule preprocess:
