@@ -217,8 +217,8 @@ def create_training_sets(
     else:
         train0 = folds[0]
         train = enum_folds[0]
-        test0 = None
-        test = None
+        test0 = []
+        test = []
 
     if representation == "SELFIES":
         logger.info("converting SMILES strings to SELFIES ...")
