@@ -30,19 +30,6 @@ wildcard_constraints:
 # -----------------------------------------------------------------------------
 # Rules
 # -----------------------------------------------------------------------------
-rule data:
-    input:
-        ranks_file_formula=expand(config['paths']['formula_ranks_file'],
-            output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, fold=range(FOLDS)),
-        ranks_file_structure=expand(config['paths']['cv_ranks_file'],
-            output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, fold=range(FOLDS)),
-        tc_file=expand(config['paths']['cv_tc_file'],
-            output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, fold=range(FOLDS)),
-        ranks_file_overall = expand(config['paths']['overall_ranks_file'],
-            output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, min_freq=MIN_FREQS, metric=METRICS),
-        tc_file_overall = expand(config['paths']['overall_tc_file'],
-            output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS,dataset=DATASET,repr=REPRESENTATIONS,min_freq=MIN_FREQS,metric=METRICS)
-
 
 rule preprocess:
     """
