@@ -177,7 +177,7 @@ def create_training_sets(
             representation=representation,
         )
 
-    generate_test_data = folds > 0
+    generate_test_data = folds > 1
     if generate_test_data:
         np.random.shuffle(smiles)
         folds = np.array_split(smiles, folds)

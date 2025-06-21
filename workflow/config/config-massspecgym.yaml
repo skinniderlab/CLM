@@ -6,7 +6,7 @@ representations:
 
 # The number of cross-validation folds.
 # The dataset is split into train/test set for each fold, and models are trained/tested on each fold.
-folds: 0
+folds: 1
 
 # Seeds used to initialize random number generators for the training runs.
 # Each seed corresponds to a separate training run.
