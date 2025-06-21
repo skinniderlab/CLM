@@ -6,22 +6,13 @@ representations:
 
 # The number of cross-validation folds.
 # The dataset is split into train/test set for each fold, and models are trained/tested on each fold.
-folds: 10
+folds: 1
 
 # Seeds used to initialize random number generators for the training runs.
 # Each seed corresponds to a separate training run.
 # Each fold trains 'train_seeds' number of models on the training set for that fold.
 train_seeds:
   - 0
-  - 1
-  - 2
-  - 3
-  - 4
-  - 5
-  - 6
-  - 7
-  - 8
-  - 9
 
 # Seeds used when sampling molecules from the trained models.
 # The number of 'sample_seeds' values specifies how many times the 'sample_molecules_RNN' step is executed,
@@ -39,9 +30,6 @@ sample_seeds:
 enum_factors:
   - 0
   - 10
-  - 30
-  - 50
-  - 100
 
 #  Limits the maximum number of input SMILES to be read from the original dataset. 0 means there's no limit.
 max_input_smiles: 0
@@ -54,7 +42,7 @@ preprocess:
   # Any SMILES containing elements outside this set will be considered invalid and excluded from the training set.
   valid_atoms: [Br, C, Cl, F, H, I, N, O, P, S]
   # Specifies whether the charges in the training SMILES should be neutralized.
-  neutralise: true
+  neutralise: false
   # Specifies whether to remove training SMILES representing molecules with tokens found in less than 0.01% of samples or fewer than 10 molecules.
   remove_rare: false
   # Specifies whether to remove duplicate SMILES from the training set, identifying duplicates by inchikey.
@@ -111,12 +99,12 @@ model_params:
 # use for aggregating frequencies?
 metrics:
   # With what frequency (across all folds) was each valid molecule produced?
-  - freq-sum
+  # - freq-sum
   # With what average frequency (across all folds) was each valid molecule produced?
   - freq-avg
   # With what average frequency (across all folds) was each valid molecule produced,
   # as a fraction of total sampling frequency (x 10e3 to avoid ~0 values)
-  - fp10k
+  # - fp10k
 
 # Minimum Tanimoto coefficient threshold to filter out molecules from training set.
 # This allows for only similar SMILES to be considered from the preprocessed dataset
@@ -142,9 +130,6 @@ err_ppm: 10
 # across all folds to be considered for further evaluation.
 structural_prior_min_freq:
   - 1
-  - 2
-  - 3
-  - 4
 
 # seed used as a global random seed for steps not covered by 'train_seeds' or 'sample_seeds'.
 random_seed: 5831
@@ -156,7 +141,7 @@ paths:
   # Base directory for outputs
   output_dir: data
   # The input dataset file.
-  dataset: "../tests/test_data/LOTUS_truncated.txt"
+  dataset: "/Genomics/skinniderlab/msms-triangulation/clm/massspecgym.txt"
   # File containing data from PubChem.
   pubchem_tsv_file: "../tests/test_data/PubChem_truncated.tsv"
 
