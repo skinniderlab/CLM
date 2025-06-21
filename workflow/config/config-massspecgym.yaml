@@ -139,7 +139,7 @@ paths:
   # Modify these paths to match your system.
 
   # Base directory for outputs
-  output_dir: data
+  output_dir: '/Genomics/skinniderlab/msms-triangulation/clm/mas-no-cv'
   # The input dataset file.
   dataset: "/Genomics/skinniderlab/msms-triangulation/clm/massspecgym.txt"
   # File containing data from PubChem.
