@@ -32,7 +32,7 @@ wildcard_constraints:
 # -----------------------------------------------------------------------------
 
 rule all:
-    output:
+    input:
         PATHS['process_tabulated_output']
         
 
