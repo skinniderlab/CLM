@@ -87,8 +87,8 @@ rule create_training_sets:
         train0_file = PATHS['train0_file'],
         test0_file = PATHS['test0_file']
     resources:
-        mem_mb=20000,
-        runtime=60,
+        mem_mb=40000,
+        runtime=600,
     shell:
         'clm create_training_sets '
         '--input-file {input} '
@@ -206,7 +206,7 @@ rule sample_molecules_RNN:
         output_file = PATHS['input_file']
     resources:
         mem_mb=12000,
-        runtime=15+MODEL_PARAMS["sample_mols"]//10000,
+        runtime=18+MODEL_PARAMS["sample_mols"]//10000,
         slurm_extra="--gres=gpu:1"
     shell:
         'clm sample_molecules_RNN '
