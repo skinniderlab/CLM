@@ -177,7 +177,7 @@ def create_training_sets(
             representation=representation,
         )
 
-    generate_test_data = folds > 0
+    generate_test_data = folds > 1
     if generate_test_data:
         np.random.shuffle(smiles)
         folds = np.array_split(smiles, folds)
@@ -217,8 +217,8 @@ def create_training_sets(
     else:
         train0 = folds[0]
         train = enum_folds[0]
-        test0 = None
-        test = None
+        test0 = []
+        test = []
 
     if representation == "SELFIES":
         logger.info("converting SMILES strings to SELFIES ...")
