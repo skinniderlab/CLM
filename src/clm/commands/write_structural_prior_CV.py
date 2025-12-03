@@ -213,9 +213,7 @@ def write_structural_prior_CV(
     logger.info("Reading sample file from generative model")
     gen = read_csv_file(sample_file)
 
-    inputs = {
-        "model": gen.assign(source="model")
-    }
+    inputs = {"model": gen.assign(source="model")}
 
     if pubchem_file:
         logger.info("Reading PubChem file")
@@ -229,7 +227,13 @@ def write_structural_prior_CV(
                 pubchem.columns = ["smiles", "mass", "formula", "fingerprint"]
                 pubchem = pubchem.dropna(subset="fingerprint")
             case 5:
-                pubchem.columns = ["smiles", "mass", "formula", "fingerprint", "inchikey"]
+                pubchem.columns = [
+                    "smiles",
+                    "mass",
+                    "formula",
+                    "fingerprint",
+                    "inchikey",
+                ]
                 pubchem = pubchem.dropna(subset="fingerprint")
             case _:
                 raise RuntimeError("Unexpected column count for PubChem")
