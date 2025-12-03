@@ -210,31 +210,36 @@ def write_structural_prior_CV(
     test = test.assign(mass_known=test["mass"].isin(train["mass"]))
     test = test.assign(formula_known=test["formula"].isin(train["formula"]))
 
-    logger.info("Reading PubChem file")
-    pubchem = read_csv_file(pubchem_file, delimiter="\t", header=None)
-
-    # PubChem tsv can have 3, 4 or 5 columns
-    match len(pubchem.columns):
-        case 3:
-            pubchem.columns = ["smiles", "mass", "formula"]
-        case 4:
-            pubchem.columns = ["smiles", "mass", "formula", "fingerprint"]
-            pubchem = pubchem.dropna(subset="fingerprint")
-        case 5:
-            pubchem.columns = ["smiles", "mass", "formula", "fingerprint", "inchikey"]
-            pubchem = pubchem.dropna(subset="fingerprint")
-        case _:
-            raise RuntimeError("Unexpected column count for PubChem")
-
-    pubchem = pubchem.assign(size=np.nan)
-
     logger.info("Reading sample file from generative model")
     gen = read_csv_file(sample_file)
 
-    inputs = {
-        "model": gen.assign(source="model"),
-        "PubChem": pubchem.assign(source="PubChem"),
-    }
+    inputs = {"model": gen.assign(source="model")}
+
+    if pubchem_file:
+        logger.info("Reading PubChem file")
+        pubchem = read_csv_file(pubchem_file, delimiter="\t", header=None)
+
+        # PubChem tsv can have 3, 4 or 5 columns
+        match len(pubchem.columns):
+            case 3:
+                pubchem.columns = ["smiles", "mass", "formula"]
+            case 4:
+                pubchem.columns = ["smiles", "mass", "formula", "fingerprint"]
+                pubchem = pubchem.dropna(subset="fingerprint")
+            case 5:
+                pubchem.columns = [
+                    "smiles",
+                    "mass",
+                    "formula",
+                    "fingerprint",
+                    "inchikey",
+                ]
+                pubchem = pubchem.dropna(subset="fingerprint")
+            case _:
+                raise RuntimeError("Unexpected column count for PubChem")
+
+        pubchem = pubchem.assign(size=np.nan)
+        inputs["PubChem"] = pubchem.assign(source="PubChem")
 
     # We are only comparing training set with test set for individual cv fold
     if cv_ranks_files is None and cv_tc_flies is None:
