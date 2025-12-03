@@ -1,6 +1,5 @@
 import numpy as np
 import logging
-import os
 import pandas as pd
 from rdkit import Chem
 from rdkit.DataStructs import FingerprintSimilarity, ExplicitBitVect
