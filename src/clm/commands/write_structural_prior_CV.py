@@ -235,7 +235,7 @@ def write_structural_prior_CV(
                 raise RuntimeError("Unexpected column count for PubChem")
 
         pubchem = pubchem.assign(size=np.nan)
-        inputs['PubChem'] = pubchem.assign(source="PubChem"),
+        inputs['PubChem'] = pubchem.assign(source="PubChem")
 
     # We are only comparing training set with test set for individual cv fold
     if cv_ranks_files is None and cv_tc_flies is None:
