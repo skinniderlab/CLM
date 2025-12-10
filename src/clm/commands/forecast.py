@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 
 def add_args(parser):
     parser.add_argument(
-        "--test-file", type=str, required=True, help="File path of test file"
+        "--test_file", type=str, required=True, help="File path of test file"
     )
     parser.add_argument(
-        "--sample-file", type=str, required=True, help="File path of sample file"
+        "--sample_file", type=str, required=True, help="File path of sample file"
     )
     parser.add_argument(
-        "--output-file", type=str, required=True, help="File path of output file"
+        "--output_file", type=str, required=True, help="File path of output file"
     )
     parser.add_argument(
         "--max-mols",
