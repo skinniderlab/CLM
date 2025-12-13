@@ -6,11 +6,17 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from rdkit import rdBase
-from clm.models import RNN, ConditionalRNN, Transformer, StructuredStateSpaceSequenceModel#, H3Model, H3ConvModel, HyenaModel
+from clm.models import (
+    RNN,
+    ConditionalRNN,
+    Transformer,
+    StructuredStateSpaceSequenceModel,
+)  # , H3Model, H3ConvModel, HyenaModel
 from clm.loggers import EarlyStopping, track_loss, print_update
 from clm.functions import write_smiles, load_dataset
 
 import warnings
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # suppress Chem.MolFromSmiles error output
@@ -184,14 +190,14 @@ def train_models_RNN(
 
     if rnn_type == "S4":
         model = StructuredStateSpaceSequenceModel(
-            vocabulary=dataset.vocabulary,    
-            model_dim=embedding_size,     
+            vocabulary=dataset.vocabulary,
+            model_dim=embedding_size,
             state_dim=64,
             n_layers=n_layers,
             n_ssm=1,
             dropout=dropout,
         )
-        
+
     # elif rnn_type == "H3":
     #     model = H3Model(
     #         vocabulary=dataset.vocabulary,
@@ -214,7 +220,7 @@ def train_models_RNN(
     #         max_len=250,
     #         use_fast_fftconv=False,
     #     )
-    
+
     # elif rnn_type == "Hyena":
     #     model = HyenaModel(
     #         vocabulary=dataset.vocabulary,
@@ -238,7 +244,7 @@ def train_models_RNN(
             exp_factor=4,
             bias=True,
         )
-        
+
     else:
         if conditional:
             model = ConditionalRNN(

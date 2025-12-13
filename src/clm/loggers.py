@@ -49,7 +49,7 @@ class EarlyStopping:
                 if self.best_loss is not None:
                     print(f"Best model (loss={self.best_loss:.4f}) already saved.")
             return
-        
+
         # do nothing if early stopping is disabled
         if self.patience > 0:
             if self.best_loss is None:

@@ -6,7 +6,12 @@ import torch
 from tqdm import tqdm
 
 from clm.datasets import Vocabulary, SelfiesVocabulary
-from clm.models import RNN, ConditionalRNN, Transformer, StructuredStateSpaceSequenceModel#, H3Model, H3ConvModel, HyenaModel
+from clm.models import (
+    RNN,
+    ConditionalRNN,
+    Transformer,
+    StructuredStateSpaceSequenceModel,
+)  # , H3Model, H3ConvModel, HyenaModel
 from clm.functions import load_dataset, write_to_csv_file
 
 logger = logging.getLogger(__name__)
@@ -122,7 +127,7 @@ def sample_molecules_RNN(
         vocab = Vocabulary(vocab_file=vocab_file)
 
     heldout_dataset = None
-    
+
     if rnn_type == "S4":
         assert (
             heldout_file is not None
@@ -133,7 +138,7 @@ def sample_molecules_RNN(
             vocab_file=vocab_file,
         )
         model = StructuredStateSpaceSequenceModel(
-            vocabulary=vocab, # heldout_dataset.vocabulary
+            vocabulary=vocab,  # heldout_dataset.vocabulary
             model_dim=embedding_size,
             state_dim=64,
             n_layers=n_layers,
@@ -196,7 +201,7 @@ def sample_molecules_RNN(
     #         dropout=dropout,
     #         max_len=250,
     #         inner_factor=1,
-    #     )  
+    #     )
 
     elif rnn_type == "Transformer":
         assert (
@@ -216,7 +221,7 @@ def sample_molecules_RNN(
             exp_factor=4,
             bias=True,
         )
-        
+
     else:
         if conditional:
             assert (
@@ -268,7 +273,9 @@ def sample_molecules_RNN(
             descriptors = None
             if heldout_dataset is not None:
                 # Use modulo to cycle through heldout_dataset
-                descriptor_indices = [(i + j) % len(heldout_dataset) for j in range(n_sequences)]
+                descriptor_indices = [
+                    (i + j) % len(heldout_dataset) for j in range(n_sequences)
+                ]
                 descriptors = torch.stack(
                     [heldout_dataset[idx][1] for idx in descriptor_indices]
                 )

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from einops import rearrange
+
 # from clm.src.models.sequence.h3 import H3
 # from clm.src.models.sequence.h3_conv import H3Conv
 # from clm.src.models.sequence.hyena_components import HyenaOperator
@@ -12,7 +13,7 @@ from einops import rearrange
 from .module_library.sequence_model import SequenceModel
 
 
-# class H3Model(nn.Module):    
+# class H3Model(nn.Module):
 #     def __init__(
 #         self,
 #         vocabulary,
@@ -25,21 +26,21 @@ from .module_library.sequence_model import SequenceModel
 #         use_fast_fftconv=False,
 #     ):
 #         super(H3Model, self).__init__()
-        
+
 #         if H3 is None:
 #             raise ImportError(
 #                 "H3 modules not found. Make sure src.models.sequence.h3 is available."
 #             )
-        
+
 #         # detect device
 #         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
 #         # vocabulary
 #         self.vocabulary = vocabulary
 #         self.vocabulary_size = len(self.vocabulary)
 #         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
 #         padding_t = torch.tensor(self.padding_idx).to(self.device)
-        
+
 #         # hyperparams
 #         self.n_layers = n_layers
 #         self.d_model = d_model
@@ -48,12 +49,12 @@ from .module_library.sequence_model import SequenceModel
 #         self.dropout = dropout
 #         self.max_len = max_len
 #         self.use_fast_fftconv = use_fast_fftconv
-        
+
 #         # model components
 #         self.embedding = nn.Embedding(
 #             self.vocabulary_size, self.d_model, padding_idx=padding_t
 #         )
-        
+
 #         # H3 layers
 #         self.layers = nn.ModuleList([
 #             H3(
@@ -67,68 +68,68 @@ from .module_library.sequence_model import SequenceModel
 #             )
 #             for i in range(self.n_layers)
 #         ])
-        
+
 #         # dropout and output
 #         self.norm = nn.LayerNorm(self.d_model)
 #         self.dropout_layer = nn.Dropout(dropout)
 #         self.output_projection = nn.Linear(self.d_model, self.vocabulary_size)
-        
+
 #         # loss function (ignoring padding)
 #         self.loss_fn = nn.CrossEntropyLoss(
 #             ignore_index=self.padding_idx, reduction="none"
 #         )
-        
+
 #         # move to GPU
 #         if torch.cuda.is_available():
 #             self.cuda()
-    
+
 #     def forward(self, x, inference_params=None):
 
 #         batch_size, seq_len = x.size()
-        
+
 #         # Embed the input
 #         x = self.embedding(x)  # (batch_size, seq_len, d_model)
-        
+
 #         # Pass through H3 layers
 #         for layer in self.layers:
 #             x = layer(x, inference_params=inference_params)
 #             if self.dropout > 0:
 #                 x = self.dropout_layer(x)
-        
+
 #         # Normalize and project to vocabulary
 #         x = self.norm(x)
 #         logits = self.output_projection(x)  # (batch_size, seq_len, vocab_size)
-        
+
 #         return logits
-    
+
 #     def loss(self, batch):
 #         if len(batch) == 3:
 #             padded, lengths, _ = batch
 #         else:
 #             padded, lengths = batch
-        
+
 #         padded = padded.to(self.device)
-        
+
 #         # Handle different input formats
 #         if padded.dim() == 2:
 #             if padded.shape[0] > padded.shape[1]:
 #                 padded = padded.transpose(0, 1)
-        
+
 #         # Forward pass
 #         logits = self(padded)
-        
+
 #         # Calculate loss
 #         targets = padded[:, 1:]
 #         logits = logits[:, :-1, :]
-        
+
 #         loss = 0.0
 #         actual_len = min(logits.shape[1], targets.shape[1])
-        
+
 #         for char_idx in range(actual_len):
 #             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-        
+
 #         return loss.mean()
-    
+
 #     def sample(
 #         self,
 #         *,
@@ -140,14 +141,14 @@ from .module_library.sequence_model import SequenceModel
 #     ):
 #         if max_len is None:
 #             max_len = self.max_len
-        
+
 #         self.eval()
-        
+
 #         # Get start/stop tokens
 #         start_token = self.vocabulary.dictionary["SOS"]
 #         stop_token = self.vocabulary.dictionary["EOS"]
 #         pad_token = self.vocabulary.dictionary["<PAD>"]
-        
+
 #         # Create inference params
 #         class InferenceParams:
 #             def __init__(self, max_seqlen, batch_size):
@@ -155,64 +156,64 @@ from .module_library.sequence_model import SequenceModel
 #                 self.max_batch_size = batch_size
 #                 self.sequence_len_offset = 0
 #                 self.key_value_memory_dict = {}
-        
+
 #         inference_params = InferenceParams(max_len, n_sequences)
-        
+
 #         # Initialize with start tokens - keep only current token for recurrent stepping
 #         current_token = torch.full(
 #             (n_sequences, 1), start_token, dtype=torch.long, device=self.device
 #         )
-        
+
 #         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-        
+
 #         finished = torch.zeros(n_sequences, dtype=torch.bool, device=self.device)
 #         log_probs = torch.zeros(n_sequences, device=self.device)
 #         sequences = []
-        
+
 #         with torch.no_grad():
 #             for step in range(max_len):
 #                 # Process only the current token in recurrent mode
 #                 logits = self(current_token, inference_params=inference_params)
 #                 logits = logits[:, -1, :]  # Get last (and only) position
-                
+
 #                 logits = torch.clamp(logits, min=-1e4, max=1e4)
 #                 prob = F.softmax(logits, dim=-1)
-                
+
 #                 if torch.isnan(prob).any() or torch.isinf(prob).any():
 #                     break
-                
+
 #                 outputs = torch.multinomial(prob, num_samples=1)
 #                 sequences.append(outputs)
-                
+
 #                 log_prob = F.log_softmax(logits, dim=-1)
 #                 losses = loss_fn(log_prob, outputs.squeeze(1))
 #                 losses[finished] = 0
 #                 log_probs += losses
-                
+
 #                 # Update current token for next step (don't accumulate)
 #                 current_token = outputs
 #                 inference_params.sequence_len_offset += 1
-                
+
 #                 finished = finished | (outputs.squeeze(1) == stop_token)
 #                 if finished.all():
 #                     break
-        
+
 #         seqs = torch.cat(sequences, 1) if sequences else torch.full(
 #             (n_sequences, 1), start_token, dtype=torch.long, device=self.device
 #         )
-        
+
 #         if return_smiles:
 #             outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
 #         else:
 #             outputs = sequences
-        
+
 #         if return_losses:
 #             return outputs, log_probs.detach().cpu().numpy()
 #         else:
 #             return outputs
 
 
-# class H3ConvModel(nn.Module):    
+# class H3ConvModel(nn.Module):
 #     def __init__(
 #         self,
 #         vocabulary,
@@ -224,21 +225,21 @@ from .module_library.sequence_model import SequenceModel
 #         use_fast_fftconv=False,
 #     ):
 #         super(H3ConvModel, self).__init__()
-        
+
 #         if H3Conv is None:
 #             raise ImportError(
 #                 "H3Conv modules not found. Make sure src.models.sequence.h3_conv is available."
 #             )
-        
+
 #         # detect device
 #         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
 #         # vocabulary
 #         self.vocabulary = vocabulary
 #         self.vocabulary_size = len(self.vocabulary)
 #         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
 #         padding_t = torch.tensor(self.padding_idx).to(self.device)
-        
+
 #         # hyperparams
 #         self.n_layers = n_layers
 #         self.d_model = d_model
@@ -246,12 +247,12 @@ from .module_library.sequence_model import SequenceModel
 #         self.dropout = dropout
 #         self.max_len = max_len
 #         self.use_fast_fftconv = use_fast_fftconv
-        
+
 #         # model components
 #         self.embedding = nn.Embedding(
 #             self.vocabulary_size, self.d_model, padding_idx=padding_t
 #         )
-        
+
 #         # H3Conv layers
 #         self.layers = nn.ModuleList([
 #             H3Conv(
@@ -264,67 +265,67 @@ from .module_library.sequence_model import SequenceModel
 #             )
 #             for i in range(self.n_layers)
 #         ])
-        
+
 #         # dropout and output
 #         self.norm = nn.LayerNorm(self.d_model)
 #         self.dropout_layer = nn.Dropout(dropout)
 #         self.output_projection = nn.Linear(self.d_model, self.vocabulary_size)
-        
+
 #         # loss function (ignoring padding)
 #         self.loss_fn = nn.CrossEntropyLoss(
 #             ignore_index=self.padding_idx, reduction="none"
 #         )
-        
+
 #         # move to GPU
 #         if torch.cuda.is_available():
 #             self.cuda()
-    
+
 #     def forward(self, x, inference_params=None):
 #         batch_size, seq_len = x.size()
-        
+
 #         # Embed the input
 #         x = self.embedding(x)  # (batch_size, seq_len, d_model)
-        
+
 #         # Pass through H3Conv layers
 #         for layer in self.layers:
 #             x = layer(x, inference_params=inference_params)
 #             if self.dropout > 0:
 #                 x = self.dropout_layer(x)
-        
+
 #         # Normalize and project to vocabulary
 #         x = self.norm(x)
 #         logits = self.output_projection(x)
-        
+
 #         return logits
-    
+
 #     def loss(self, batch):
 #         if len(batch) == 3:
 #             padded, lengths, _ = batch
 #         else:
 #             padded, lengths = batch
-        
+
 #         padded = padded.to(self.device)
-        
+
 #         # Handle different input formats
 #         if padded.dim() == 2:
 #             if padded.shape[0] > padded.shape[1]:
 #                 padded = padded.transpose(0, 1)
-        
+
 #         # Forward pass
 #         logits = self(padded)
-        
+
 #         # Calculate loss
 #         targets = padded[:, 1:]
 #         logits = logits[:, :-1, :]
-        
+
 #         loss = 0.0
 #         actual_len = min(logits.shape[1], targets.shape[1])
-        
+
 #         for char_idx in range(actual_len):
 #             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-        
+
 #         return loss.mean()
-    
+
 #     def sample(
 #         self,
 #         *,
@@ -336,65 +337,65 @@ from .module_library.sequence_model import SequenceModel
 #     ):
 #         if max_len is None:
 #             max_len = self.max_len
-        
+
 #         self.eval()
-        
+
 #         start_token = self.vocabulary.dictionary["SOS"]
 #         stop_token = self.vocabulary.dictionary["EOS"]
 #         pad_token = self.vocabulary.dictionary["<PAD>"]
-        
+
 #         # H3Conv doesn't use stateful inference, process full sequence each time
 #         inputs = torch.full(
 #             (n_sequences, 1), start_token, dtype=torch.long, device=self.device
 #         )
-        
+
 #         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-        
+
 #         finished = torch.zeros(n_sequences, dtype=torch.bool, device=self.device)
 #         log_probs = torch.zeros(n_sequences, device=self.device)
 #         sequences = []
-        
+
 #         with torch.no_grad():
 #             for step in range(max_len):
 #                 logits = self(inputs)
 #                 logits = logits[:, -1, :]
-                
+
 #                 logits = torch.clamp(logits, min=-1e4, max=1e4)
 #                 prob = F.softmax(logits, dim=-1)
-                
+
 #                 if torch.isnan(prob).any() or torch.isinf(prob).any():
 #                     break
-                
+
 #                 outputs = torch.multinomial(prob, num_samples=1)
 #                 sequences.append(outputs)
-                
+
 #                 log_prob = F.log_softmax(logits, dim=-1)
 #                 losses = loss_fn(log_prob, outputs.squeeze(1))
 #                 losses[finished] = 0
 #                 log_probs += losses
-                
+
 #                 inputs = torch.cat([inputs, outputs], dim=1)
-                
+
 #                 finished = finished | (outputs.squeeze(1) == stop_token)
 #                 if finished.all():
 #                     break
-        
+
 #         seqs = torch.cat(sequences, 1) if sequences else torch.full(
 #             (n_sequences, 1), start_token, dtype=torch.long, device=self.device
 #         )
-        
+
 #         if return_smiles:
 #             outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
 #         else:
 #             outputs = sequences
-        
+
 #         if return_losses:
 #             return outputs, log_probs.detach().cpu().numpy()
 #         else:
 #             return outputs
 
 
-# class HyenaModel(nn.Module):    
+# class HyenaModel(nn.Module):
 #     def __init__(
 #         self,
 #         vocabulary,
@@ -408,16 +409,16 @@ from .module_library.sequence_model import SequenceModel
 #         inner_factor=1,
 #     ):
 #         super(HyenaModel, self).__init__()
-        
+
 #         # detect device
 #         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
 #         # vocabulary
 #         self.vocabulary = vocabulary
 #         self.vocabulary_size = len(self.vocabulary)
 #         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
 #         padding_t = torch.tensor(self.padding_idx).to(self.device)
-        
+
 #         # hyperparams
 #         self.n_layers = n_layers
 #         self.d_model = d_model
@@ -427,12 +428,12 @@ from .module_library.sequence_model import SequenceModel
 #         self.dropout = dropout
 #         self.max_len = max_len
 #         self.inner_factor = inner_factor
-        
+
 #         # model components
 #         self.embedding = nn.Embedding(
 #             self.vocabulary_size, self.d_model, padding_idx=padding_t
 #         )
-        
+
 #         # Hyena layers
 #         self.layers = nn.ModuleList([
 #             HyenaOperator(
@@ -446,27 +447,27 @@ from .module_library.sequence_model import SequenceModel
 #             )
 #             for i in range(self.n_layers)
 #         ])
-        
+
 #         # dropout and output
 #         self.norm = nn.LayerNorm(self.d_model)
 #         self.dropout_layer = nn.Dropout(dropout)
 #         self.output_projection = nn.Linear(self.d_model, self.vocabulary_size)
-        
+
 #         # loss function (ignoring padding)
 #         self.loss_fn = nn.CrossEntropyLoss(
 #             ignore_index=self.padding_idx, reduction="none"
 #         )
-        
+
 #         # move to GPU
 #         if torch.cuda.is_available():
 #             self.cuda()
-    
+
 #     def forward(self, x):
 #         batch_size, seq_len = x.size()
-        
+
 #         # Embed the input
 #         x = self.embedding(x)  # (batch_size, seq_len, d_model)
-        
+
 #         # Pass through Hyena layers
 #         for layer in self.layers:
 #             residual = x
@@ -474,41 +475,41 @@ from .module_library.sequence_model import SequenceModel
 #             x = x + residual  # Residual connection
 #             if self.dropout > 0:
 #                 x = self.dropout_layer(x)
-        
+
 #         # Normalize and project to vocabulary
 #         x = self.norm(x)
 #         logits = self.output_projection(x)
-        
+
 #         return logits
-    
+
 #     def loss(self, batch):
 #         if len(batch) == 3:
 #             padded, lengths, _ = batch
 #         else:
 #             padded, lengths = batch
-        
+
 #         padded = padded.to(self.device)
-        
+
 #         # Handle different input formats
 #         if padded.dim() == 2:
 #             if padded.shape[0] > padded.shape[1]:
 #                 padded = padded.transpose(0, 1)
-        
+
 #         # Forward pass
 #         logits = self(padded)
-        
+
 #         # Calculate loss
 #         targets = padded[:, 1:]
 #         logits = logits[:, :-1, :]
-        
+
 #         loss = 0.0
 #         actual_len = min(logits.shape[1], targets.shape[1])
-        
+
 #         for char_idx in range(actual_len):
 #             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-        
+
 #         return loss.mean()
-    
+
 #     def sample(
 #         self,
 #         *,
@@ -520,59 +521,59 @@ from .module_library.sequence_model import SequenceModel
 #     ):
 #         if max_len is None:
 #             max_len = self.max_len
-        
+
 #         self.eval()
-        
+
 #         start_token = self.vocabulary.dictionary["SOS"]
 #         stop_token = self.vocabulary.dictionary["EOS"]
 #         pad_token = self.vocabulary.dictionary["<PAD>"]
-        
+
 #         # Initialize with start tokens
 #         inputs = torch.full(
 #             (n_sequences, 1), start_token, dtype=torch.long, device=self.device
 #         )
-        
+
 #         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-        
+
 #         finished = torch.zeros(n_sequences, dtype=torch.bool, device=self.device)
 #         log_probs = torch.zeros(n_sequences, device=self.device)
 #         sequences = []
-        
+
 #         with torch.no_grad():
 #             for step in range(max_len):
 #                 # Hyena processes full sequence each time (stateless)
 #                 logits = self(inputs)
 #                 logits = logits[:, -1, :]
-                
+
 #                 logits = torch.clamp(logits, min=-1e4, max=1e4)
 #                 prob = F.softmax(logits, dim=-1)
-                
+
 #                 if torch.isnan(prob).any() or torch.isinf(prob).any():
 #                     break
-                
+
 #                 outputs = torch.multinomial(prob, num_samples=1)
 #                 sequences.append(outputs)
-                
+
 #                 log_prob = F.log_softmax(logits, dim=-1)
 #                 losses = loss_fn(log_prob, outputs.squeeze(1))
 #                 losses[finished] = 0
 #                 log_probs += losses
-                
+
 #                 inputs = torch.cat([inputs, outputs], dim=1)
-                
+
 #                 finished = finished | (outputs.squeeze(1) == stop_token)
 #                 if finished.all():
 #                     break
-        
+
 #         seqs = torch.cat(sequences, 1) if sequences else torch.full(
 #             (n_sequences, 1), start_token, dtype=torch.long, device=self.device
 #         )
-        
+
 #         if return_smiles:
 #             outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
 #         else:
 #             outputs = sequences
-        
+
 #         if return_losses:
 #             return outputs, log_probs.detach().cpu().numpy()
 #         else:
@@ -591,16 +592,16 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         max_len=250,
     ):
         super(StructuredStateSpaceSequenceModel, self).__init__()
-        
+
         # detect device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
         # vocabulary
         self.vocabulary = vocabulary
         self.vocabulary_size = len(self.vocabulary)
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
         padding_t = torch.tensor(self.padding_idx).to(self.device)
-        
+
         # hyperparams
         self.model_dim = model_dim
         self.state_dim = state_dim
@@ -608,7 +609,7 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         self.n_ssm = n_ssm
         self.dropout = dropout
         self.max_len = max_len
-        
+
         # S4 layer configuration
         self.layer_config = [
             {
@@ -624,15 +625,15 @@ class StructuredStateSpaceSequenceModel(nn.Module):
             {"_name_": "ff"},
         ]
         self.pool_config = {"_name_": "pool", "stride": 1, "expand": None}
-        
+
         # model components
         self.embedding = nn.Embedding(
             self.vocabulary_size, self.model_dim, padding_idx=padding_t
         )
-        
+
         # Import SequenceModel from your module library
         from .module_library.sequence_model import SequenceModel
-        
+
         self.model = SequenceModel(
             d_model=self.model_dim,
             n_layers=self.n_layers,
@@ -641,57 +642,57 @@ class StructuredStateSpaceSequenceModel(nn.Module):
             layer=self.layer_config,
             pool=self.pool_config,
         )
-        
+
         self.output_embedding = nn.Linear(self.model_dim, self.vocabulary_size)
         self.recurrent_state = None
-        
+
         # loss function (ignoring padding)
         self.loss_fn = nn.CrossEntropyLoss(
             ignore_index=self.padding_idx, reduction="none"
         )
-        
+
         # move to GPU
         if torch.cuda.is_available():
             self.cuda()
-    
+
     def forward(self, x):
         batch_size, seq_len = x.size()
-        
+
         # Embed the input
         x = self.embedding(x)  # (batch_size, seq_len, model_dim)
-        
+
         # Pass through S4 model (without state in training mode)
         x, _ = self.model(x, state=None)
-        
+
         # Project to vocabulary
         logits = self.output_embedding(x)  # (batch_size, seq_len, vocab_size)
-        
+
         return logits
-    
+
     def reset_state(self, batch_size, device=None):
         if device is None:
             device = self.device
         self.recurrent_state = self.model.default_state(batch_size, device=device)
-    
+
     def recurrent_step(self, x_t):
         if x_t.dim() == 1:
             x_t = x_t.unsqueeze(1)
-        
+
         x_t = self.embedding(x_t).squeeze(1)  # (batch_size, model_dim)
         x_t, state = self.model.step(x_t, state=self.recurrent_state)
         self.recurrent_state = state
         x_t = self.output_embedding(x_t)  # (batch_size, vocab_size)
-        
+
         return x_t
-    
+
     def loss(self, batch):
         if len(batch) == 3:
             padded, lengths, _ = batch
         else:
             padded, lengths = batch
-        
+
         padded = padded.to(self.device)
-        
+
         # Handle different input formats
         # RNN format is typically (seq_len, batch_size)
         # S4/Transformer format is typically (batch_size, seq_len)
@@ -699,30 +700,30 @@ class StructuredStateSpaceSequenceModel(nn.Module):
             if padded.shape[0] > padded.shape[1]:
                 # Likely (seq_len, batch_size), transpose to (batch_size, seq_len)
                 padded = padded.transpose(0, 1)
-        
+
         batch_size = padded.shape[0]
         seq_len = padded.shape[1]
-        
+
         # Don't use recurrent state during training - use full convolution mode
         self.recurrent_state = None
-        
+
         # Forward pass
         logits = self(padded)  # (batch_size, seq_len, vocab_size)
-        
+
         # Calculate loss
         # Shift targets: predict next token
         targets = padded[:, 1:]  # (batch_size, seq_len-1)
         logits = logits[:, :-1, :]  # (batch_size, seq_len-1, vocab_size)
-        
+
         # Reshape for loss calculation
         loss = 0.0
         actual_len = min(logits.shape[1], targets.shape[1])
-        
+
         for char_idx in range(actual_len):
             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-        
+
         return loss.mean()
-    
+
     def sample(
         self,
         *,
@@ -734,84 +735,83 @@ class StructuredStateSpaceSequenceModel(nn.Module):
     ):
         if max_len is None:
             max_len = self.max_len
-        
+
         # IMPORTANT: Set model to eval mode before sampling
         self.eval()
-        
+
         # Setup for recurrent mode
         for module in self.model.modules():
             if hasattr(module, "setup_step"):
                 module.setup_step()
-        
+
         # Reset state
         self.reset_state(n_sequences, device=self.device)
-        
+
         # Get start/stop tokens
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
         pad_token = self.vocabulary.dictionary["<PAD>"]
-        
+
         # Create start token tensor
-        inputs = (
-            torch.empty(n_sequences)
-            .fill_(start_token)
-            .long()
-            .to(self.device)
-        )
-        
+        inputs = torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+
         # Setup loss function
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-        
+
         # Sample sequences
         finished = torch.zeros(n_sequences).byte().to(self.device)
         log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-        
+
         with torch.no_grad():  # Also add no_grad for efficiency
             for step in range(max_len):
                 # Get logits for current input
                 logits = self.recurrent_step(inputs)
-                
+
                 # Clamp logits to prevent inf/nan
                 logits = torch.clamp(logits, min=-1e4, max=1e4)
-                
+
                 # Sample from distribution
                 prob = F.softmax(logits, dim=-1)
-                
+
                 # Check for invalid values
                 if torch.isnan(prob).any() or torch.isinf(prob).any():
                     break
-                
+
                 outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
-                
+
                 sequences.append(outputs.view(-1, 1))
-                
+
                 # Calculate NLL
                 log_prob = F.log_softmax(logits, dim=-1)
                 losses = loss_fn(log_prob, outputs)
-                
+
                 # Zero losses if we are finished sampling
                 losses[finished.bool()] = 0
                 log_probs += losses
-                
+
                 # Update inputs for next step
                 inputs = outputs
-                
+
                 # Track whether sampling is done for all molecules
                 finished = torch.ge(finished + (outputs == stop_token), 1)
                 if torch.prod(finished) == 1:
                     break
-        
+
         # Concatenate sequences and decode
-        seqs = torch.cat(sequences, 1) if sequences else torch.empty(
-            n_sequences, 1, dtype=torch.long
-        ).fill_(start_token).to(self.device)
-        
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.empty(n_sequences, 1, dtype=torch.long)
+            .fill_(start_token)
+            .to(self.device)
+        )
+
         if return_smiles:
             outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
             outputs = sequences
-        
+
         # Optionally return losses
         if return_losses:
             return outputs, log_probs.detach().cpu().numpy()
@@ -1231,21 +1231,23 @@ class Transformer(nn.Module):
             padded, lengths, _ = batch
         else:
             padded, lengths = batch
-    
+
         padded = padded.to(self.device)
-        
+
         # Get actual sequence length from batch
         actual_seq_len = padded.shape[1]
-        
+
         decoded = self(padded)  # batch_size x seq_len x vocab_size
-    
+
         loss = 0.0
         targets = padded[:, 1:]  # batch_size x (seq_len-1)
-    
+
         # Loop only up to actual decoded sequence length minus 1
-        for char_idx in range(min(actual_seq_len - 1, decoded.shape[1], targets.shape[1])):
+        for char_idx in range(
+            min(actual_seq_len - 1, decoded.shape[1], targets.shape[1])
+        ):
             loss += self.loss_fn(decoded[:, char_idx, :], targets[:, char_idx])
-    
+
         return loss.mean()
 
     def sample(
@@ -1253,7 +1255,7 @@ class Transformer(nn.Module):
     ):
         # Reset recurrent state before sampling
         self.reset_state(n_sequences, device=self.device)
-        
+
         # get start/stop tokens
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
@@ -1280,11 +1282,11 @@ class Transformer(nn.Module):
             # Clamp logits to prevent inf/nan
             logits = torch.clamp(logits, min=-1e4, max=1e4)
             prob = F.softmax(logits, dim=-1)
-            
+
             # Check for invalid values and skip if found
             if torch.isnan(prob).any() or torch.isinf(prob).any():
                 break
-            
+
             outputs = torch.multinomial(prob, num_samples=1)
             # append to growing sequence
             inputs = torch.cat((inputs, outputs), dim=1)
@@ -1301,7 +1303,13 @@ class Transformer(nn.Module):
                 break
 
         # concatenate sequences and decode
-        seqs = torch.cat(sequences, 1) if sequences else torch.empty(n_sequences, 1, dtype=torch.long).fill_(start_token).to(self.device)
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.empty(n_sequences, 1, dtype=torch.long)
+            .fill_(start_token)
+            .to(self.device)
+        )
         if return_smiles:
             outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
