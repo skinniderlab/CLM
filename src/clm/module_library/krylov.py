@@ -100,24 +100,24 @@ def power(L, A, v=None):
     v: (..., N, L)
     """
 
-    I = torch.eye(A.shape[-1]).to(A)  # , dtype=A.dtype, device=A.device)
+    identity = torch.eye(A.shape[-1]).to(A)  # Changed from I to identity
 
     powers = [A]
-    l = 1
+    power_of_2 = 1  # Changed from l to power_of_2
     while True:
         if L % 2 == 1:
-            I = powers[-1] @ I
+            identity = powers[-1] @ identity  # Changed from I to identity
         L //= 2
         if L == 0:
             break
-        l *= 2
+        power_of_2 *= 2  # Changed from l to power_of_2
         if v is None:
             powers = [powers[-1] @ powers[-1]]
         else:
             powers.append(powers[-1] @ powers[-1])
 
     if v is None:
-        return I
+        return identity  # Changed from I to identity
 
     # Invariants:
     # powers[-1] := A^l
@@ -130,16 +130,16 @@ def power(L, A, v=None):
 
     # Take care of edge case for non-po2 arrays
     # Note that this initial step is a no-op for the case of power of 2 (l == L)
-    k = v.size(-1) - l
-    v_ = powers.pop() @ v[..., l:]
-    v = v[..., :l]
+    k = v.size(-1) - power_of_2  # Changed from l to power_of_2
+    v_ = powers.pop() @ v[..., power_of_2:]  # Changed from l to power_of_2
+    v = v[..., :power_of_2]  # Changed from l to power_of_2
     v[..., :k] = v[..., :k] + v_
 
     # Handle reduction for power of 2
     while v.size(-1) > 1:
         v = rearrange(v, "... (z l) -> ... z l", z=2)
         v = v[..., 0, :] + powers.pop() @ v[..., 1, :]
-    return I, v.squeeze(-1)
+    return identity, v.squeeze(-1)  # Changed from I to identity
 
 
 def krylov_toeplitz(L, A, b, c=None):
