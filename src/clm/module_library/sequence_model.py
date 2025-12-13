@@ -102,12 +102,12 @@ class SequenceModel(SequenceModule):
         # Instantiate layers
         _layers = []
         d = d_model
-        for l, layer in enumerate(layers):
+        for layer_idx, layer in enumerate(layers):
             # Pool at the end of every n_repeat blocks
-            pool_cfg = pool if (l + 1) % n_repeat == 0 else None
+            pool_cfg = pool if (layer_idx + 1) % n_repeat == 0 else None
             block = SequenceResidualBlock(
                 d,
-                l + 1,
+                layer_idx + 1,
                 prenorm=prenorm,
                 dropout=dropout,
                 tie_dropout=tie_dropout,

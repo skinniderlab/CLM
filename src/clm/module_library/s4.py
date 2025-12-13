@@ -4,15 +4,15 @@ import torch.nn.functional as F
 import opt_einsum as oe
 from einops import rearrange
 
+from .kernel import SSKernel
+from .util_modules import LinearActivation, Activation, DropoutNd
+
 optimized = True
 
 if optimized:
     contract = oe.contract
 else:
     contract = torch.einsum
-
-from .kernel import SSKernel
-from .util_modules import LinearActivation, Activation, DropoutNd
 
 
 class S4(nn.Module):
