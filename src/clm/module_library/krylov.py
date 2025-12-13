@@ -182,11 +182,11 @@ def krylov_toeplitz_(L, A, b, c=None):
     A = F.pad(A, (0, N))
     done = L == 1
     while not done:
-        l = x.shape[0]
+        length = x.shape[0]
         # Save memory on last iteration
-        if L - l <= l:
+        if L - length <= length: 
             done = True
-            _x = x[: L - l]
+            _x = x[: L - length]
         else:
             _x = x
         Af = torch.fft.rfft(A, n=2 * N, dim=-1)
