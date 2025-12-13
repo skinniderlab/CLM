@@ -67,10 +67,10 @@ def krylov(L, A, b, c=None, return_power=False):
             _L //= 2
 
         # Save memory on last iteration
-        l = x.shape[-1]
-        if L - l <= l:
+        current_length = x.shape[-1]
+        if L - current_length <= current_length:
             done = True
-            _x = x[..., : L - l]
+            _x = x[..., : L - current_length]
         else:
             _x = x
 
@@ -184,7 +184,7 @@ def krylov_toeplitz_(L, A, b, c=None):
     while not done:
         length = x.shape[0]
         # Save memory on last iteration
-        if L - length <= length: 
+        if L - length <= length:
             done = True
             _x = x[: L - length]
         else:
