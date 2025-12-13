@@ -481,10 +481,10 @@ class SSKernelNPLR(OptimModule):
         else:
             # self.C represents C_tilde
             dA_L = power(self.L.item(), self.dA)
-            I = torch.eye(self.dA.size(-1)).to(dA_L)
+            identity_matrix = torch.eye(self.dA. size(-1)).to(dA_L)
 
             dC = torch.linalg.solve(
-                I - dA_L.transpose(-1, -2),
+                identity_matrix - dA_L.transpose(-1, -2),
                 C.unsqueeze(-1),
             ).squeeze(-1)
         self.dC = dC
@@ -593,7 +593,7 @@ class SSKernel(nn.Module):
         measure_args={},
         **kernel_args,
     ):
-        """State Space Kernel which computes the convolution kernel $\\bar{K}$
+        """State Space Kernel which computes the convolution kernel $\\\\bar{K}$
 
         H: Number of independent SSM copies; controls the size of the model. Also called d_model in the config.
         N: State size (dimensionality of parameters A, B, C). Also called d_state in the config. Generally shouldn't need to be adjusted and doens't affect speed much.
