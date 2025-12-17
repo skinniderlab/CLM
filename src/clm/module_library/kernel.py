@@ -481,7 +481,7 @@ class SSKernelNPLR(OptimModule):
         else:
             # self.C represents C_tilde
             dA_L = power(self.L.item(), self.dA)
-            identity_matrix = torch.eye(self.dA. size(-1)).to(dA_L)
+            identity_matrix = torch.eye(self.dA.size(-1)).to(dA_L)
 
             dC = torch.linalg.solve(
                 identity_matrix - dA_L.transpose(-1, -2),
