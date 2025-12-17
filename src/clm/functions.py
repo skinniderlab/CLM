@@ -575,7 +575,7 @@ def split_frequency_ranges(data, max_molecules=None, all=False):
     frequency_ranges = [(1, 1), (2, 2), (3, 10), (11, 30), (31, 100), (101, None)]
 
     data["bin"] = ""
-    for (f_min, f_max) in frequency_ranges:
+    for f_min, f_max in frequency_ranges:
         if f_max is not None:
             selected_rows = data[data["size"].between(f_min, f_max)]
         else:
