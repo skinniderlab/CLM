@@ -55,7 +55,6 @@ def plot_generated_v_ref(outcome, output_dir):
 
 
 def plot_by_frequency(outcome, output_dir):
-
     # Split the outcomes by frequency bins
     outcome_freq = split_frequency_ranges(outcome, max_molecules=10000000)
 

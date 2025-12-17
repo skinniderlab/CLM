@@ -37,7 +37,6 @@ def add_args(parser):
 
 
 def forecast(test_file, sample_file, output_file, max_molecules=None):
-
     output_dir = os.path.dirname(output_file)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)

@@ -29,9 +29,11 @@ def add_args(parser):
         required=False,
         help="Path to the rank file ",
     )
-    parser.add_argument(
-        "--tc_file", type=str, required=False, help="Path to the tc file "
-    ),
+    (
+        parser.add_argument(
+            "--tc_file", type=str, required=False, help="Path to the tc file "
+        ),
+    )
     parser.add_argument(
         "--tc_files",
         type=str,

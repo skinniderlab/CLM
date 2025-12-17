@@ -4,13 +4,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from einops import rearrange
 
 # from clm.src.models.sequence.h3 import H3
 # from clm.src.models.sequence.h3_conv import H3Conv
 # from clm.src.models.sequence.hyena_components import HyenaOperator
 
-from .module_library.sequence_model import SequenceModel
+# from .module_library.sequence_model import SequenceModel
 
 
 # class H3Model(nn.Module):
@@ -701,8 +700,8 @@ class StructuredStateSpaceSequenceModel(nn.Module):
                 # Likely (seq_len, batch_size), transpose to (batch_size, seq_len)
                 padded = padded.transpose(0, 1)
 
-        batch_size = padded.shape[0]
-        seq_len = padded.shape[1]
+        # batch_size = padded.shape[0]
+        # seq_len = padded.shape[1]
 
         # Don't use recurrent state during training - use full convolution mode
         self.recurrent_state = None
@@ -933,9 +932,14 @@ class RNN(nn.Module):
         )
         # initialize hidden state
         if self.rnn_type == "LSTM":
-            hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
-                self.device
-            ), torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(self.device)
+            hidden = (
+                torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+                    self.device
+                ),
+                torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+                    self.device
+                ),
+            )
         else:
             hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
                 self.device
@@ -1560,9 +1564,14 @@ class ConditionalRNN(nn.Module):
                 descriptors
             )  # Initializing hidden state based on number of layers
         else:
-            hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
-                self.device
-            ), torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(self.device)
+            hidden = (
+                torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+                    self.device
+                ),
+                torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+                    self.device
+                ),
+            )
 
         # repeat descriptors
         descriptors = descriptors.view(1, n_sequences, descriptors.shape[1])

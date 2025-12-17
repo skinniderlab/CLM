@@ -23,7 +23,6 @@ def add_args(parser):
 
 
 def plot(outcome_files, output_dir):
-
     os.makedirs(output_dir, exist_ok=True)
 
     # Concatenate all the outcome files

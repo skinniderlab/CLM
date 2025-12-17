@@ -7,7 +7,7 @@ from einops import rearrange, repeat
 from opt_einsum import contract, contract_expression
 
 from . import dplr
-from .krylov import krylov, power
+from .krylov import power
 from .cauchy import cauchy_naive
 
 
@@ -347,12 +347,12 @@ class SSKernelNPLR(OptimModule):
 
         # assert self.L > 0, "Set up module first"
 
-        K = self.forward(L=self.l_max)[0]
+        # K = self.forward(L=self.l_max)[0]
 
         self._setup_step()
-        K_ = krylov(self.l_max, self.dA, self.dB, self.dC)
+        # K_ = krylov(self.l_max, self.dA, self.dB, self.dC)
 
-        diff = K - K_
+        # diff = K - K_
 
     @torch.no_grad()
     def _setup_linear(self):
@@ -378,7 +378,7 @@ class SSKernelNPLR(OptimModule):
         Q_D = rearrange(Q * D, "r h n -> h r n")
         try:
             R = torch.linalg.solve(R, Q_D)  # (H R N)
-        except:
+        except torch.linalg.LinAlgError:
             R = torch.tensor(
                 np.linalg.solve(
                     R.to(Q_D).contiguous().detach().cpu(),

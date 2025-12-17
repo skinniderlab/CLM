@@ -182,7 +182,6 @@ def train_models_RNN(
     conditional_dec_l=True,
     conditional_h=False,
 ):
-
     os.makedirs(os.path.dirname(os.path.abspath(model_file)), exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(loss_file)), exist_ok=True)
 

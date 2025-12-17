@@ -61,7 +61,6 @@ def plot_topk(min_freqs, rank_files, output_dir):
 
 
 def plot_tc_freq(min_freqs, tc_files, output_dir):
-
     for filename, freq in zip(tc_files, min_freqs.keys()):
         outcome = read_csv_file(filename, delimiter=",", index_col=0)
         sampled_df = outcome[outcome["target_source"] == "model"]
@@ -90,7 +89,6 @@ def plot_tc_freq(min_freqs, tc_files, output_dir):
 
 
 def plot_p_accuracy(min_freqs, rank_files, output_dir):
-
     for filename, freq in zip(rank_files, min_freqs.keys()):
         outcome = read_csv_file(filename, delimiter=",", index_col=0)
         sampled_df = outcome[outcome["target_source"] == "model"]
@@ -113,7 +111,6 @@ def plot_p_ever_generated(
     rank_files,
     output_dir,
 ):
-
     for filename, freq in zip(rank_files, min_freqs.keys()):
         outcome = read_csv_file(filename, delimiter=",")
         outcome = outcome[outcome["target_source"] == "model"]
