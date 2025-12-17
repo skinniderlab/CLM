@@ -95,14 +95,20 @@ def add_args(parser):
 
 
 def get_similar_smiles(
-    input_smiles, min_tc, n_molecules=100, max_tries=200, representation="SMILES"
+    input_smiles,
+    min_tc,
+    n_molecules=100,
+    max_tries=200,
+    representation="SMILES",
 ):
     mols = clean_mols(input_smiles, selfies=representation == "SELFIES")
     input_smiles = [
         input_smiles[idx] for idx, mol in enumerate(mols) if mol is not None
     ]
     input_mols = [mol for mol in mols if mol is not None]
-    logger.info(f"Calculating fingerprints for {len(input_mols)} valid molecules ...")
+    logger.info(
+        f"Calculating fingerprints for {len(input_mols)} valid molecules ..."
+    )
     input_fps = [
         AllChem.GetMorganFingerprintAsBitVect(input_mol, 3, nBits=1024)
         for input_mol in tqdm(input_mols)
@@ -126,10 +132,14 @@ def get_similar_smiles(
         # pick our seed molecule at random
         target_fp = input_fps[0]
 
-        tcs = [FingerprintSimilarity(input_fp, target_fp) for input_fp in input_fps]
+        tcs = [
+            FingerprintSimilarity(input_fp, target_fp) for input_fp in input_fps
+        ]
         # subset SMILES based on fingerprint similarity
         subset_smiles = [
-            input_smiles for input_smiles, tc in zip(input_smiles, tcs) if tc >= min_tc
+            input_smiles
+            for input_smiles, tc in zip(input_smiles, tcs)
+            if tc >= min_tc
         ]
 
         # break if we have enough molecules
@@ -189,7 +199,9 @@ def create_training_sets(
         sme = SmilesEnumerator(canonical=False, enum=True)
         for idx, fold in enumerate(folds):
             enum = []
-            max_tries = 200  # randomized SMILES to generate for each input structure
+            max_tries = (
+                200  # randomized SMILES to generate for each input structure
+            )
             for sm_idx, sm in enumerate(tqdm(fold)):
                 tries = []
                 for try_idx in range(max_tries):

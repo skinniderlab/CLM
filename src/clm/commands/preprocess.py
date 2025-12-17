@@ -80,11 +80,15 @@ def preprocess(
     ):
         mol = clean_mols([smile])[0]
         if min_heavy_atoms > 0:
-            mol = remove_salts_solvents(mol, hac=min_heavy_atoms) if mol else None
+            mol = (
+                remove_salts_solvents(mol, hac=min_heavy_atoms) if mol else None
+            )
         if neutralise:
             mol = NeutraliseCharges(mol) if mol else None
 
-        elements = set([atom.GetSymbol() for atom in mol.GetAtoms()] if mol else [])
+        elements = set(
+            [atom.GetSymbol() for atom in mol.GetAtoms()] if mol else []
+        )
         valid_elements = set(valid_elements or VALID_ELEMENTS)
         if elements.difference(valid_elements):
             mol = None
@@ -102,7 +106,10 @@ def preprocess(
     data = data[~data["mol"].isnull()]
 
     data["inchikey"] = data.apply(
-        lambda row: Chem.inchi.MolToInchiKey(row["mol"]) if row["mol"] else None, axis=1
+        lambda row: (
+            Chem.inchi.MolToInchiKey(row["mol"]) if row["mol"] else None
+        ),
+        axis=1,
     )
 
     if not keep_duplicates:

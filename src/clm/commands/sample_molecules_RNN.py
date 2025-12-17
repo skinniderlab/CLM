@@ -28,14 +28,22 @@ def add_args(parser):
         "--embedding_size", type=int, help="Size of the embedding layer"
     )
 
-    parser.add_argument("--hidden_size", type=int, help="Size of the hidden layers")
-
-    parser.add_argument("--n_layers", type=int, help="Number of layers in the RNN")
-
-    parser.add_argument("--dropout", type=float, help="Dropout rate for the RNN")
+    parser.add_argument(
+        "--hidden_size", type=int, help="Size of the hidden layers"
+    )
 
     parser.add_argument(
-        "--conditional", action="store_true", help="Activate Conditional RNN model"
+        "--n_layers", type=int, help="Number of layers in the RNN"
+    )
+
+    parser.add_argument(
+        "--dropout", type=float, help="Dropout rate for the RNN"
+    )
+
+    parser.add_argument(
+        "--conditional",
+        action="store_true",
+        help="Activate Conditional RNN model",
     )
     parser.add_argument(
         "--conditional_emb",
@@ -69,7 +77,9 @@ def add_args(parser):
         help="Testing file in heldout set. Useful for sampling from a Conditional RNN model",
     )
 
-    parser.add_argument("--batch_size", type=int, help="Batch size for training")
+    parser.add_argument(
+        "--batch_size", type=int, help="Batch size for training"
+    )
 
     parser.add_argument(
         "--sample_mols", type=int, help="Number of molecules to generate"
@@ -159,7 +169,9 @@ def sample_molecules_RNN(
     if torch.cuda.is_available():
         model.load_state_dict(torch.load(model_file))
     else:
-        model.load_state_dict(torch.load(model_file, map_location=torch.device("cpu")))
+        model.load_state_dict(
+            torch.load(model_file, map_location=torch.device("cpu"))
+        )
 
     model.eval()
 
@@ -176,11 +188,17 @@ def sample_molecules_RNN(
                 )
                 descriptors = descriptors.to(model.device)
             sampled_smiles, losses = model.sample(
-                descriptors=descriptors, n_sequences=n_sequences, return_losses=True
+                descriptors=descriptors,
+                n_sequences=n_sequences,
+                return_losses=True,
             )
-            df = pd.DataFrame(zip(losses, sampled_smiles), columns=["loss", "smiles"])
+            df = pd.DataFrame(
+                zip(losses, sampled_smiles), columns=["loss", "smiles"]
+            )
 
-            write_to_csv_file(output_file, mode="w" if i == 0 else "a+", info=df)
+            write_to_csv_file(
+                output_file, mode="w" if i == 0 else "a+", info=df
+            )
 
             pbar.update(batch_size)
 

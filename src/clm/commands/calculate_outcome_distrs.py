@@ -37,10 +37,16 @@ rdBase.DisableLog("rdApp.error")
 
 
 def add_args(parser):
-    parser.add_argument("--sample_file", type=str, help="Path to the sampled file")
+    parser.add_argument(
+        "--sample_file", type=str, help="Path to the sampled file"
+    )
     parser.add_argument("--train_file", type=str, help="Path to the train file")
-    parser.add_argument("--max_mols", type=int, help="Number of samples to select")
-    parser.add_argument("--pubchem_file", type=str, help="Path to the PubChem file")
+    parser.add_argument(
+        "--max_mols", type=int, help="Number of samples to select"
+    )
+    parser.add_argument(
+        "--pubchem_file", type=str, help="Path to the PubChem file"
+    )
     parser.add_argument(
         "--output_file", type=str, help="Path to the save the output file"
     )
@@ -55,12 +61,17 @@ def write_outcome_distr(sample_file, max_mols, train_file, pubchem_file):
         )
 
     pubchem = read_csv_file(
-        pubchem_file, delimiter="\t", header=None, names=["smiles", "mass", "formula"]
+        pubchem_file,
+        delimiter="\t",
+        header=None,
+        names=["smiles", "mass", "formula"],
     )
     pubchem = pubchem[pubchem["formula"].isin(set(sample.formula))]
     pubchem = pubchem.drop_duplicates(subset=["formula"], keep="first")
 
-    train = pd.DataFrame({"smiles": read_file(train_file, smile_only=True)["smiles"]})
+    train = pd.DataFrame(
+        {"smiles": read_file(train_file, smile_only=True)["smiles"]}
+    )
     combination = pd.concat(
         [
             sample.assign(source="model"),
@@ -173,7 +184,9 @@ def calculate_outcome_distr(
             src_idxs = np.where(df["source"] == src)[0]
             # TODO: was previously src_elements = np.take(elements, src_idxs)
             src_elements = [elements[i] for i in src_idxs]
-            src_counts = np.unique(list(chain(*src_elements)), return_counts=True)
+            src_counts = np.unique(
+                list(chain(*src_elements)), return_counts=True
+            )
             for idx, element in enumerate(src_counts[0]):
                 atom_count = src_counts[1][idx]
                 res.append(
@@ -190,7 +203,9 @@ def calculate_outcome_distr(
         for idx, element in enumerate(counts[0]):
             atom_count = counts[1][idx]
             res.append(
-                pd.DataFrame({"outcome": "# atoms, " + element, "value": [atom_count]})
+                pd.DataFrame(
+                    {"outcome": "# atoms, " + element, "value": [atom_count]}
+                )
             )
 
     # make output directories

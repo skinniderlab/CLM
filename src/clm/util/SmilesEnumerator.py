@@ -107,7 +107,9 @@ class SmilesIterator(Iterator):
             self.y = None
         self.smiles_data_generator = smiles_data_generator
         self.dtype = dtype
-        super(SmilesIterator, self).__init__(x.shape[0], batch_size, shuffle, seed)
+        super(SmilesIterator, self).__init__(
+            x.shape[0], batch_size, shuffle, seed
+        )
 
     def next(self):
         """For python 2.x.
@@ -117,13 +119,18 @@ class SmilesIterator(Iterator):
         # Keeps under lock only the mechanism which advances
         # the indexing of each batch.
         with self.lock:
-            index_array, current_index, current_batch_size = next(self.index_generator)
+            index_array, current_index, current_batch_size = next(
+                self.index_generator
+            )
         # The transformation of images is not under thread lock
         # so it can be done in parallel
         batch_x = np.zeros(
             tuple(
                 [current_batch_size]
-                + [self.smiles_data_generator.pad, self.smiles_data_generator._charlen]
+                + [
+                    self.smiles_data_generator.pad,
+                    self.smiles_data_generator._charlen,
+                ]
             ),
             dtype=self.dtype,
         )
@@ -207,7 +214,9 @@ class SmilesEnumerator(object):
         #Arguments
             smiles: Numpy array or Pandas series containing smiles as strings
         """
-        one_hot = np.zeros((smiles.shape[0], self.pad, self._charlen), dtype=np.int8)
+        one_hot = np.zeros(
+            (smiles.shape[0], self.pad, self._charlen), dtype=np.int8
+        )
 
         if self.leftpad:
             for i, ss in enumerate(smiles):

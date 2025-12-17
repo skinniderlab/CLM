@@ -16,7 +16,12 @@ from clm.commands.calculate_outcome_distrs import (
 from clm.commands.add_carbon import add_carbon
 from clm.commands.plot import plot
 from clm.plot.topk_tc import exact_tc_matches
-from clm.functions import assert_checksum_equals, read_csv_file, local_seed, set_seed
+from clm.functions import (
+    assert_checksum_equals,
+    read_csv_file,
+    local_seed,
+    set_seed,
+)
 
 base_dir = Path(__file__).parent.parent
 test_dir = base_dir / "tests/test_data"
@@ -50,7 +55,9 @@ def test_prep_outcome_freq(tmp_path):
         )
 
         true_outcomes = read_csv_file(test_dir / "prep_outcomes_freq.csv")
-        pd.testing.assert_frame_equal(outcomes, true_outcomes, check_dtype=False)
+        pd.testing.assert_frame_equal(
+            outcomes, true_outcomes, check_dtype=False
+        )
 
 
 def test_calculate_outcomes(tmp_path):
@@ -70,16 +77,16 @@ def test_calculate_outcomes(tmp_path):
     )
 
     # % unique for bin "1-1" (if present) should be 1.0 (since all molecules are unique)
-    unique_1 = outcomes[(outcomes.bin == "1-1") & (outcomes.outcome == "% unique")][
-        "value"
-    ].values
+    unique_1 = outcomes[
+        (outcomes.bin == "1-1") & (outcomes.outcome == "% unique")
+    ]["value"].values
     if len(unique_1) > 0:
         assert unique_1[0] == 1.0
 
     # % unique for bin "2-2" (if present) should be 0.5 (since all molecules are generated twice)
-    unique_2 = outcomes[(outcomes.bin == "2-2") & (outcomes.outcome == "% unique")][
-        "value"
-    ].values
+    unique_2 = outcomes[
+        (outcomes.bin == "2-2") & (outcomes.outcome == "% unique")
+    ]["value"].values
     if len(unique_2) > 0:
         assert unique_2[0] == 0.5
 
@@ -139,7 +146,9 @@ def test_write_nn_tc(tmp_path):
     )
 
     plot(
-        evaluation_type="write_nn_tc", outcome_files=[output_file], output_dir=tmp_path
+        evaluation_type="write_nn_tc",
+        outcome_files=[output_file],
+        output_dir=tmp_path,
     )
 
 
@@ -223,7 +232,9 @@ def test_add_carbon(tmp_path):
         output_file=tmp_path / "add_carbon.csv",
     )
 
-    assert_checksum_equals(tmp_path / "add_carbon.csv", test_dir / "add_carbon.csv")
+    assert_checksum_equals(
+        tmp_path / "add_carbon.csv", test_dir / "add_carbon.csv"
+    )
     assert_checksum_equals(
         tmp_path / "add_carbon-unique.smi", test_dir / "add_carbon-unique.smi"
     )
@@ -231,10 +242,12 @@ def test_add_carbon(tmp_path):
 
 def test_nn_tc_ever_never(tmp_path):
     query_file = (
-        test_dir / "snakemake_output/0/prior/inputs/train0_LOTUS_truncated_SMILES_0.smi"
+        test_dir
+        / "snakemake_output/0/prior/inputs/train0_LOTUS_truncated_SMILES_0.smi"
     )
     reference_file = (
-        test_dir / "snakemake_output/0/prior/inputs/train0_LOTUS_truncated_SMILES_0.smi"
+        test_dir
+        / "snakemake_output/0/prior/inputs/train0_LOTUS_truncated_SMILES_0.smi"
     )
     output_file = tmp_path / "output_nn_tc_ever_never.csv"
     write_nn_Tc(
@@ -243,7 +256,8 @@ def test_nn_tc_ever_never(tmp_path):
         output_file=output_file,
     )
     pd.testing.assert_frame_equal(
-        pd.read_csv(output_file), pd.read_csv(test_dir / "output_nn_tc_ever_never.csv")
+        pd.read_csv(output_file),
+        pd.read_csv(test_dir / "output_nn_tc_ever_never.csv"),
     )
 
 

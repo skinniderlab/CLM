@@ -42,11 +42,17 @@ tqdm.pandas()
 
 def add_args(parser):
     parser.add_argument(
-        "--train_file", type=str, help="Training csv file with smiles as a column."
+        "--train_file",
+        type=str,
+        help="Training csv file with smiles as a column.",
     )
-    parser.add_argument("--sampled_file", type=str, help="Path to the sampled file")
     parser.add_argument(
-        "--invalid_smiles_file", type=str, help="Path to the invalid sampled file"
+        "--sampled_file", type=str, help="Path to the sampled file"
+    )
+    parser.add_argument(
+        "--invalid_smiles_file",
+        type=str,
+        help="Path to the invalid sampled file",
     )
     parser.add_argument(
         "--known_smiles_file", type=str, help="Path to the known sampled file"
@@ -118,7 +124,13 @@ def smile_properties_dataframe(a_row, is_sample=False):
     if is_sample:
         # note: "size" instead of .size which is a property of Series
         data.append(
-            (a_row.smiles, a_row.is_valid, a_row.is_novel, a_row["size"], a_row.bin)
+            (
+                a_row.smiles,
+                a_row.is_valid,
+                a_row.is_novel,
+                a_row["size"],
+                a_row.bin,
+            )
             + row
         )
     else:
@@ -148,7 +160,9 @@ def calculate_probabilities(*dicts):
     return_values = []
     for dictionary in dicts:
         total = sum(dictionary.values())
-        return_values.append([dictionary.get(k, 0) / total for k in merged_keys])
+        return_values.append(
+            [dictionary.get(k, 0) / total for k in merged_keys]
+        )
 
     return return_values
 
@@ -190,7 +204,9 @@ def get_dataframes(train_file, prep_sample_df):
 
 
 def calculate_outcomes_dataframe(sample_df, train_df):
-    def handle_bin(bin_name, df, train_element_distribution, train_murcko_distribution):
+    def handle_bin(
+        bin_name, df, train_element_distribution, train_murcko_distribution
+    ):
         n_total_smiles = df["size"].sum()
 
         # Filtering out invalid smiles
@@ -208,7 +224,8 @@ def calculate_outcomes_dataframe(sample_df, train_df):
         element_distribution = dict(
             zip(
                 *np.unique(
-                    np.concatenate(bin_df["elements"].to_numpy()), return_counts=True
+                    np.concatenate(bin_df["elements"].to_numpy()),
+                    return_counts=True,
                 )
             )
         )
@@ -229,7 +246,8 @@ def calculate_outcomes_dataframe(sample_df, train_df):
             "bin": bin_name,
             "n_mols": n_total_smiles,
             "% valid": n_valid_smiles / n_total_smiles,
-            "% novel": bin_df[bin_df["is_novel"]]["size"].sum() / n_valid_smiles,
+            "% novel": bin_df[bin_df["is_novel"]]["size"].sum()
+            / n_valid_smiles,
             "% unique": len(bin_df) / n_valid_smiles,
             "KL divergence, atoms": scipy.stats.entropy(p2, p1),
             "Jensen-Shannon distance, atoms": jensenshannon(p2, p1),
@@ -253,7 +271,9 @@ def calculate_outcomes_dataframe(sample_df, train_df):
             "External diversity": external_diversity(
                 bin_df["fps"].to_numpy(), train_df["fps"].to_numpy()
             ),
-            "Internal nearest-neighbor Tc": internal_nn(bin_df["fps"].to_numpy()),
+            "Internal nearest-neighbor Tc": internal_nn(
+                bin_df["fps"].to_numpy()
+            ),
             "External nearest-neighbor Tc": external_nn(
                 bin_df["fps"].to_numpy(), train_df["fps"].to_numpy()
             ),
@@ -281,7 +301,9 @@ def calculate_outcomes_dataframe(sample_df, train_df):
             "Jensen-Shannon distance, % stereocenters": continuous_JSD(
                 bin_df["stereo"], train_df["stereo"]
             ),
-            "Jensen-Shannon distance, Murcko scaffolds": jensenshannon(p_m2, p_m1),
+            "Jensen-Shannon distance, Murcko scaffolds": jensenshannon(
+                p_m2, p_m1
+            ),
             "Jensen-Shannon distance, hydrogen donors": discrete_JSD(
                 bin_df["donors"], train_df["donors"]
             ),
@@ -297,7 +319,8 @@ def calculate_outcomes_dataframe(sample_df, train_df):
     train_element_distribution = dict(
         zip(
             *np.unique(
-                np.concatenate(train_df["elements"].to_numpy()), return_counts=True
+                np.concatenate(train_df["elements"].to_numpy()),
+                return_counts=True,
             )
         )
     )
@@ -331,9 +354,9 @@ def prep_outcomes_freq(
     known_df = read_csv_file(known_smiles, usecols=["smiles", "size"]).assign(
         is_valid=True, is_novel=False
     )
-    invalid_df = read_csv_file(invalid_smiles, usecols=["smiles", "size"]).assign(
-        is_valid=False, is_novel=True
-    )
+    invalid_df = read_csv_file(
+        invalid_smiles, usecols=["smiles", "size"]
+    ).assign(is_valid=False, is_novel=True)
     sample_df = read_csv_file(samples, usecols=["smiles", "size"]).assign(
         is_valid=True, is_novel=True
     )
@@ -345,7 +368,12 @@ def prep_outcomes_freq(
 
 
 def calculate_outcomes(
-    sampled_file, train_file, known_smiles, invalid_smiles, max_molecules, output_file
+    sampled_file,
+    train_file,
+    known_smiles,
+    invalid_smiles,
+    max_molecules,
+    output_file,
 ):
     prep_sample_df = prep_outcomes_freq(
         sampled_file, max_molecules, known_smiles, invalid_smiles

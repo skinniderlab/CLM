@@ -98,7 +98,9 @@ def plot(outcome_files, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     # Concatenate all the outcome files
-    outcome = pd.concat([read_csv_file(file, delimiter=",") for file in outcome_files])
+    outcome = pd.concat(
+        [read_csv_file(file, delimiter=",") for file in outcome_files]
+    )
 
     plot_generated_v_ref(outcome, output_dir)
     plot_by_frequency(outcome, output_dir)

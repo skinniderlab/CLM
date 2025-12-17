@@ -48,7 +48,9 @@ class EarlyStopping:
                 self.counter += 1
                 if self.counter >= self.patience:
                     self.stop = True
-                    print("stopping early with best loss " + str(self.best_loss))
+                    print(
+                        "stopping early with best loss " + str(self.best_loss)
+                    )
             else:
                 # loss is decreasing
                 self.best_loss = val_loss
@@ -62,7 +64,11 @@ class EarlyStopping:
 
 
 def track_loss(
-    output_file, epoch, batch_no, value, outcome=("training loss", "validation loss")
+    output_file,
+    epoch,
+    batch_no,
+    value,
+    outcome=("training loss", "validation loss"),
 ):
     sched = pd.DataFrame(
         {
@@ -81,7 +87,13 @@ def track_loss(
 
 
 def print_update(
-    model, epoch, batch_idx, training_loss, validation_loss, n_smiles=64, dataset=None
+    model,
+    epoch,
+    batch_idx,
+    training_loss,
+    validation_loss,
+    n_smiles=64,
+    dataset=None,
 ):
     # print message
     tqdm.write("*" * 50)

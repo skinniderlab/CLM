@@ -85,7 +85,9 @@ class SmilesDataset(Dataset):
         tokenized = self.vocabulary.tokenize(row["smiles"])
         try:
             encoded = self.vocabulary.encode(tokenized)
-        except KeyError:  # some callers might only be interested in the descriptors
+        except (
+            KeyError
+        ):  # some callers might only be interested in the descriptors
             encoded = None
         return encoded, torch.Tensor(pd.to_numeric(row[self.descriptor_names]))
 
@@ -93,7 +95,9 @@ class SmilesDataset(Dataset):
         selected_indices = np.random.choice(self.validation_set.index, n_smiles)
         selected_data = self.validation_set.loc[selected_indices]
         smiles = selected_data["smiles"]
-        descriptors = torch.Tensor(selected_data[self.descriptor_names].to_numpy())
+        descriptors = torch.Tensor(
+            selected_data[self.descriptor_names].to_numpy()
+        )
         tokenized = [self.vocabulary.tokenize(sm) for sm in smiles]
         encoded = [self.vocabulary.encode(tk) for tk in tokenized]
         return self.collate(list(zip(encoded, descriptors)))
@@ -234,11 +238,14 @@ class Vocabulary:
                 self.smiles = read_file(smiles_file)
             else:
                 raise ValueError(
-                    "must provide SMILES list or file to" + " instantiate Vocabulary"
+                    "must provide SMILES list or file to"
+                    + " instantiate Vocabulary"
                 )
             # tokenize all SMILES in the input and add all tokens to vocabulary
             all_chars = [self.tokenize(sm) for sm in self.smiles]
-            self.characters = np.unique(np.array(list(chain(*all_chars)))).tolist()
+            self.characters = np.unique(
+                np.array(list(chain(*all_chars)))
+            ).tolist()
 
         # add padding token
         if "<PAD>" not in self.characters:
@@ -247,7 +254,9 @@ class Vocabulary:
 
         # create dictionaries
         self.dictionary = {key: idx for idx, key in enumerate(self.characters)}
-        self.reverse_dictionary = {value: key for key, value in self.dictionary.items()}
+        self.reverse_dictionary = {
+            value: key for key, value in self.dictionary.items()
+        }
 
     """
     Regular expressions used to tokenize SMILES strings; borrowed from
@@ -358,7 +367,8 @@ class SelfiesVocabulary:
                 self.selfies = read_file(selfies_file)
             else:
                 raise ValueError(
-                    "must provide SELFIES list or file to" + " instantiate Vocabulary"
+                    "must provide SELFIES list or file to"
+                    + " instantiate Vocabulary"
                 )
             # tokenize all SMILES in the input and add all tokens to vocabulary
             alphabet = sorted(list(sf.get_alphabet_from_selfies(self.selfies)))
@@ -372,7 +382,9 @@ class SelfiesVocabulary:
 
         # create dictionaries
         self.dictionary = {key: idx for idx, key in enumerate(self.characters)}
-        self.reverse_dictionary = {value: key for key, value in self.dictionary.items()}
+        self.reverse_dictionary = {
+            value: key for key, value in self.dictionary.items()
+        }
 
     def tokenize(self, selfie):
         """

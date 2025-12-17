@@ -15,7 +15,9 @@ from clm.functions import (
 
 def add_args(parser):
     parser.add_argument(
-        "--train_file", type=str, help="Training csv file with smiles as a column."
+        "--train_file",
+        type=str,
+        help="Training csv file with smiles as a column.",
     )
     parser.add_argument(
         "--sampled_file",
@@ -46,7 +48,9 @@ def calculate_fingerprint(smile):
         return compute_fingerprint(mol)
 
 
-def train_discriminator(train_file, sample_file, output_file, seed, max_mols=100_000):
+def train_discriminator(
+    train_file, sample_file, output_file, seed, max_mols=100_000
+):
 
     train_smiles = read_csv_file(train_file)
     sample_smiles = read_csv_file(sample_file)
@@ -65,7 +69,10 @@ def train_discriminator(train_file, sample_file, output_file, seed, max_mols=100
     # Match the number of novel and train smiles
     if sample_smiles.shape[0] > len(train_smiles):
         sample_smiles = sample_smiles.sample(
-            n=len(train_smiles), weights="size", random_state=seed, replace=False
+            n=len(train_smiles),
+            weights="size",
+            random_state=seed,
+            replace=False,
         )
 
     sample_smiles = sample_smiles.smiles.to_numpy()
