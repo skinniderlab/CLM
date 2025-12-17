@@ -6,9 +6,18 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from rdkit import rdBase
-from clm.models import RNN, ConditionalRNN
+from clm.models import (
+    RNN,
+    ConditionalRNN,
+    Transformer,
+    StructuredStateSpaceSequenceModel,
+)  # , H3Model, H3ConvModel, HyenaModel
 from clm.loggers import EarlyStopping, track_loss, print_update
 from clm.functions import write_smiles, load_dataset
+
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # suppress Chem.MolFromSmiles error output
 rdBase.DisableLog("rdApp.error")
@@ -179,30 +188,88 @@ def train_models_RNN(
 
     dataset = load_dataset(representation, input_file, vocab_file)
 
-    if conditional:
-        model = ConditionalRNN(
-            dataset.vocabulary,
-            rnn_type=rnn_type,
+    if rnn_type == "S4":
+        model = StructuredStateSpaceSequenceModel(
+            vocabulary=dataset.vocabulary,
+            model_dim=embedding_size,
+            state_dim=64,
             n_layers=n_layers,
-            embedding_size=embedding_size,
-            hidden_size=hidden_size,
+            n_ssm=1,
             dropout=dropout,
-            num_descriptors=dataset.n_descriptors,
-            conditional_emb=conditional_emb,
-            conditional_emb_l=conditional_emb_l,
-            conditional_dec=conditional_dec,
-            conditional_dec_l=conditional_dec_l,
-            conditional_h=conditional_h,
         )
+
+    # elif rnn_type == "H3":
+    #     model = H3Model(
+    #         vocabulary=dataset.vocabulary,
+    #         n_layers=n_layers,
+    #         d_model=embedding_size,
+    #         d_state=64,
+    #         head_dim=1,
+    #         dropout=dropout,
+    #         max_len=250,
+    #         use_fast_fftconv=False,
+    #     )
+
+    # elif rnn_type == "H3Conv":
+    #     model = H3ConvModel(
+    #         vocabulary=dataset.vocabulary,
+    #         n_layers=n_layers,
+    #         d_model=embedding_size,
+    #         head_dim=1,
+    #         dropout=dropout,
+    #         max_len=250,
+    #         use_fast_fftconv=False,
+    #     )
+
+    # elif rnn_type == "Hyena":
+    #     model = HyenaModel(
+    #         vocabulary=dataset.vocabulary,
+    #         n_layers=n_layers,
+    #         d_model=embedding_size,
+    #         order=2,
+    #         filter_order=64,
+    #         num_heads=1,
+    #         dropout=dropout,
+    #         max_len=250,
+    #         inner_factor=1,
+    #     )
+
+    elif rnn_type == "Transformer":
+        model = Transformer(
+            vocabulary=dataset.vocabulary,
+            n_blocks=n_layers,
+            n_heads=4,
+            embedding_size=embedding_size,
+            dropout=dropout,
+            exp_factor=4,
+            bias=True,
+        )
+
     else:
-        model = RNN(
-            dataset.vocabulary,
-            rnn_type=rnn_type,
-            n_layers=n_layers,
-            embedding_size=embedding_size,
-            hidden_size=hidden_size,
-            dropout=dropout,
-        )
+        if conditional:
+            model = ConditionalRNN(
+                dataset.vocabulary,
+                rnn_type=rnn_type,
+                n_layers=n_layers,
+                embedding_size=embedding_size,
+                hidden_size=hidden_size,
+                dropout=dropout,
+                num_descriptors=dataset.n_descriptors,
+                conditional_emb=conditional_emb,
+                conditional_emb_l=conditional_emb_l,
+                conditional_dec=conditional_dec,
+                conditional_dec_l=conditional_dec_l,
+                conditional_h=conditional_h,
+            )
+        else:
+            model = RNN(
+                dataset.vocabulary,
+                rnn_type=rnn_type,
+                n_layers=n_layers,
+                embedding_size=embedding_size,
+                hidden_size=hidden_size,
+                dropout=dropout,
+            )
 
     logger.info(dataset.vocabulary.dictionary)
 

@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import torch
+import math
 from rdkit import Chem
 from tqdm import tqdm
 from clm.models import ConditionalRNN
@@ -34,9 +35,21 @@ class EarlyStopping:
         self.best_loss = None
         self.step_at_best = 0
         self.stop = False
+        self.nan_counter = 0
         print("instantiated early stopping with patience=" + str(self.patience))
 
     def __call__(self, val_loss, model, output_file, step_idx):
+        # Check for NaN/Inf
+        if math.isnan(val_loss) or math.isinf(val_loss):
+            self.nan_counter += 1
+            print(f"NaN/Inf loss detected at step {step_idx} ({self.nan_counter}/3)")
+            if self.nan_counter >= 3:
+                self.stop = True
+                print("Stopping training after 3 consecutive NaN/Inf losses.")
+                if self.best_loss is not None:
+                    print(f"Best model (loss={self.best_loss:.4f}) already saved.")
+            return
+
         # do nothing if early stopping is disabled
         if self.patience > 0:
             if self.best_loss is None:
