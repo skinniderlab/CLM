@@ -128,3 +128,5 @@ virtualenv==20.26.2
 wrapt==1.16.0
 yte==1.5.4
 zipp==3.19.0
+einops==0.6.0
+opt_einsum==3.3.0
