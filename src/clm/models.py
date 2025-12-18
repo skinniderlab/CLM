@@ -4,13 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from einops import rearrange
-
 # from clm.src.models.sequence.h3 import H3
 # from clm.src.models.sequence.h3_conv import H3Conv
 # from clm.src.models.sequence.hyena_components import HyenaOperator
 
-from .module_library.sequence_model import SequenceModel
+from s4dd.module_library.sequence_model import SequenceModel
 
 
 # class H3Model(nn.Module):
@@ -631,9 +629,6 @@ class StructuredStateSpaceSequenceModel(nn.Module):
             self.vocabulary_size, self.model_dim, padding_idx=padding_t
         )
 
-        # Import SequenceModel from your module library
-        from .module_library.sequence_model import SequenceModel
-
         self.model = SequenceModel(
             d_model=self.model_dim,
             n_layers=self.n_layers,
@@ -701,8 +696,8 @@ class StructuredStateSpaceSequenceModel(nn.Module):
                 # Likely (seq_len, batch_size), transpose to (batch_size, seq_len)
                 padded = padded.transpose(0, 1)
 
-        batch_size = padded.shape[0]
-        seq_len = padded.shape[1]
+        # batch_size = padded.shape[0]
+        # seq_len = padded.shape[1]
 
         # Don't use recurrent state during training - use full convolution mode
         self.recurrent_state = None
