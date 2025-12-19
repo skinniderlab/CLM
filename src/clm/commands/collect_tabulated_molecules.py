@@ -35,7 +35,8 @@ def collect_tabulated_molecules(
     os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 
     df = pd.concat(
-        [read_csv_file(file, delimiter=",") for file in input_files], ignore_index=True
+        [read_csv_file(file, delimiter=",") for file in input_files],
+        ignore_index=True,
     )
 
     # Find unique combinations of inchikey, mass, and formula, and add a
@@ -60,11 +61,14 @@ def collect_tabulated_molecules(
         )
         unique_known = known_df.groupby(["smiles"]).first().reset_index()
         unique_known["size"] = (
-            known_df.groupby(["smiles"]).agg({"size": "sum"}).reset_index(drop=True)
+            known_df.groupby(["smiles"])
+            .agg({"size": "sum"})
+            .reset_index(drop=True)
         )
         write_to_csv_file(
             os.path.join(
-                os.path.dirname(output_file), "known_" + os.path.basename(output_file)
+                os.path.dirname(output_file),
+                "known_" + os.path.basename(output_file),
             ),
             unique_known,
         )
@@ -76,11 +80,14 @@ def collect_tabulated_molecules(
         )
         unique_invalid = invalid_df.groupby(["smiles"]).first().reset_index()
         unique_invalid["size"] = (
-            invalid_df.groupby(["smiles"]).agg({"size": "sum"}).reset_index(drop=True)
+            invalid_df.groupby(["smiles"])
+            .agg({"size": "sum"})
+            .reset_index(drop=True)
         )
         write_to_csv_file(
             os.path.join(
-                os.path.dirname(output_file), "invalid_" + os.path.basename(output_file)
+                os.path.dirname(output_file),
+                "invalid_" + os.path.basename(output_file),
             ),
             unique_invalid,
         )

@@ -1,6 +1,7 @@
 """
 Apply the Renz et al. 'AddCarbon' model to the training set.
 """
+
 import os
 import numpy as np
 from rdkit import Chem
@@ -41,7 +42,9 @@ def add_carbon(input_file, output_file):
         train_inchi = dataframe["inchikey"].tolist()
     else:
         train_mols = [clean_mol(smile, raise_error=False) for smile in smiles]
-        train_inchi = set([Chem.inchi.MolToInchiKey(mol) for mol in train_mols if mol])
+        train_inchi = set(
+            [Chem.inchi.MolToInchiKey(mol) for mol in train_mols if mol]
+        )
 
     # loop over the input SMILES
     # output_smiles = list()
@@ -90,7 +93,13 @@ def add_carbon(input_file, output_file):
         #     break
 
     df = pd.DataFrame(
-        columns=["input_smiles", "mutated_smiles", "mass", "formula", "inchikey"],
+        columns=[
+            "input_smiles",
+            "mutated_smiles",
+            "mass",
+            "formula",
+            "inchikey",
+        ],
         dtype=str,
         data=data,
     )

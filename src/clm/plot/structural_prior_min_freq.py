@@ -45,7 +45,9 @@ def plot_topk(min_freqs, rank_files, output_dir):
     outcomes = []
     for filename, freq in zip(rank_files, min_freqs.keys()):
         outcomes.append(
-            read_csv_file(filename, delimiter=",", index_col=0).assign(min_freqs=freq)
+            read_csv_file(filename, delimiter=",", index_col=0).assign(
+                min_freqs=freq
+            )
         )
     outcomes = pd.concat(outcomes)
     outcomes = outcomes[outcomes["target_source"] == "model"]

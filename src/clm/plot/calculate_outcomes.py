@@ -27,7 +27,9 @@ def plot(outcome_files, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     # Concatenate all the outcome files
-    outcome = pd.concat([read_csv_file(file, delimiter=",") for file in outcome_files])
+    outcome = pd.concat(
+        [read_csv_file(file, delimiter=",") for file in outcome_files]
+    )
 
     # Plot every figure possible
     for outcome_type, _outcome in outcome.groupby("outcome"):

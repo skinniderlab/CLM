@@ -81,24 +81,31 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
             else:
                 known_smiles[canonical_smile] += 1
 
-    freqs = pd.DataFrame(new_smiles, columns=["smiles", "mass", "formula", "inchikey"])
+    freqs = pd.DataFrame(
+        new_smiles, columns=["smiles", "mass", "formula", "inchikey"]
+    )
 
     # Find unique combinations of inchikey, mass, and formula, and add a
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique combination, select the first canonical smile.
-    unique = freqs.groupby(["inchikey", "mass", "formula"]).first().reset_index()
+    unique = (
+        freqs.groupby(["inchikey", "mass", "formula"]).first().reset_index()
+    )
     unique["size"] = (
-        freqs.groupby(["inchikey", "mass", "formula"]).size().reset_index(drop=True)
+        freqs.groupby(["inchikey", "mass", "formula"])
+        .size()
+        .reset_index(drop=True)
     )
-    unique = unique.sort_values("size", ascending=False, kind="stable").reset_index(
-        drop=True
-    )
+    unique = unique.sort_values(
+        "size", ascending=False, kind="stable"
+    ).reset_index(drop=True)
 
     write_to_csv_file(output_file, unique)
     # TODO: The following approach will result in multiple lines for each repeated smile
     write_to_csv_file(
         os.path.join(
-            os.path.dirname(output_file), "known_" + os.path.basename(output_file)
+            os.path.dirname(output_file),
+            "known_" + os.path.basename(output_file),
         ),
         pd.DataFrame(
             [(smile, freq) for smile, freq in known_smiles.items()],
@@ -107,7 +114,8 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     )
     write_to_csv_file(
         os.path.join(
-            os.path.dirname(output_file), "invalid_" + os.path.basename(output_file)
+            os.path.dirname(output_file),
+            "invalid_" + os.path.basename(output_file),
         ),
         pd.DataFrame(
             [(smile, freq) for smile, freq in invalid_smiles.items()],

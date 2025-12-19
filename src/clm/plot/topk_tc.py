@@ -53,7 +53,9 @@ def exact_tc_matches(outcome, min_tcs):
             else:
                 # Assigning every other attribute as nan to avoid double representation of a single threshold
                 match.append(
-                    pd.DataFrame([{col: np.nan for col in df}]).assign(min_tc=min_tc)
+                    pd.DataFrame([{col: np.nan for col in df}]).assign(
+                        min_tc=min_tc
+                    )
                 )
 
     return pd.concat(match)
@@ -64,7 +66,10 @@ def plot(outcome_files, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     outcome = pd.concat(
-        [read_csv_file(outcome_file, delimiter=",") for outcome_file in outcome_files]
+        [
+            read_csv_file(outcome_file, delimiter=",")
+            for outcome_file in outcome_files
+        ]
     )
 
     # Filtering out tc of more than 0.4 because that's considered to be an exact match for this case
@@ -79,7 +84,9 @@ def plot(outcome_files, output_dir):
     for min_tc in min_tcs:
         plt.step(ks, tc_count[min_tc], label=min_tc)
 
-    plt.title("Top-k accuracy curve when considering Tc >= 0.4, 0.675 as 'correct'")
+    plt.title(
+        "Top-k accuracy curve when considering Tc >= 0.4, 0.675 as 'correct'"
+    )
     plt.xlabel("k")
     plt.xscale("log")
     plt.ylabel("Top k %")

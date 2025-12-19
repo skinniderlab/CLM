@@ -26,7 +26,9 @@ def add_args(parser):
 
 
 def plot_roc_curve(outcome, output_dir):
-    y_test, y_scores = list(outcome["y"].dropna()), list(outcome["y_prob_1"].dropna())
+    y_test, y_scores = list(outcome["y"].dropna()), list(
+        outcome["y_prob_1"].dropna()
+    )
 
     fpr, tpr, _ = roc_curve(y_test, y_scores)
     roc_auc = auc(fpr, tpr)
@@ -56,7 +58,9 @@ def plot_roc_curve(outcome, output_dir):
 
 
 def plot_confusion_matrix(outcome, output_dir):
-    y_test, y_pred = list(outcome["y"].dropna()), list(outcome["y_pred"].dropna())
+    y_test, y_pred = list(outcome["y"].dropna()), list(
+        outcome["y_pred"].dropna()
+    )
 
     cm = confusion_matrix(y_test, y_pred)
     # Normalize the confusion matrix to show percentages
@@ -88,7 +92,10 @@ def plot(outcome_files, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     outcome = pd.concat(
-        [read_csv_file(outcome_file, delimiter=",") for outcome_file in outcome_files]
+        [
+            read_csv_file(outcome_file, delimiter=",")
+            for outcome_file in outcome_files
+        ]
     )
 
     # Metrics for outcomes (from `sklearn.metrics`)

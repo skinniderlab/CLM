@@ -96,7 +96,10 @@ def plot(outcome_files, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     outcome = pd.concat(
-        [read_csv_file(outcome_file, delimiter=",") for outcome_file in outcome_files]
+        [
+            read_csv_file(outcome_file, delimiter=",")
+            for outcome_file in outcome_files
+        ]
     )
 
     plot_roc_curve(outcome, output_dir)

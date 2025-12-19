@@ -10,7 +10,9 @@ def add_args(parser):
     parser.add_argument(
         "--cv_file", type=str, nargs="+", help="Path to the  training sets."
     )
-    parser.add_argument("--output_file", type=str, help="Path to the output CSV file.")
+    parser.add_argument(
+        "--output_file", type=str, help="Path to the output CSV file."
+    )
     parser.add_argument(
         "--summary_fn",
         type=str,
@@ -31,13 +33,19 @@ def process_tabulated_molecules(
 ):
     meta = pd.concat(
         [
-            read_csv_file(file, dtype={"smiles": str, "inchikey": str}).assign(fold=idx)
+            read_csv_file(file, dtype={"smiles": str, "inchikey": str}).assign(
+                fold=idx
+            )
             for idx, file in enumerate(input_file)
         ]
     )
 
     data = meta.pivot_table(
-        index="inchikey", columns="fold", values="size", aggfunc="first", fill_value=0
+        index="inchikey",
+        columns="fold",
+        values="size",
+        aggfunc="first",
+        fill_value=0,
     )
 
     # Filter out molecules with frequency less than min_freq
@@ -70,12 +78,16 @@ def process_tabulated_molecules(
             {"inchikey": list(uniq_inchikeys), "size": np.nanmean(data, axis=1)}
         )
 
-    data = data.sort_values(by="size", ascending=False, kind="stable").query("size > 0")
+    data = data.sort_values(by="size", ascending=False, kind="stable").query(
+        "size > 0"
+    )
 
     if not data.empty:
         # Add metadata (mass and formula)
         data = data.merge(
-            meta.drop_duplicates("inchikey")[["inchikey", "smiles", "mass", "formula"]],
+            meta.drop_duplicates("inchikey")[
+                ["inchikey", "smiles", "mass", "formula"]
+            ],
             how="left",
             on="inchikey",
         )

@@ -31,13 +31,21 @@ def add_args(parser):
         "--embedding_size", type=int, help="Size of the embedding layer"
     )
 
-    parser.add_argument("--hidden_size", type=int, help="Size of the hidden layers")
+    parser.add_argument(
+        "--hidden_size", type=int, help="Size of the hidden layers"
+    )
 
-    parser.add_argument("--n_layers", type=int, help="Number of layers in the RNN")
+    parser.add_argument(
+        "--n_layers", type=int, help="Number of layers in the RNN"
+    )
 
-    parser.add_argument("--dropout", type=float, help="Dropout rate for the RNN")
+    parser.add_argument(
+        "--dropout", type=float, help="Dropout rate for the RNN"
+    )
 
-    parser.add_argument("--batch_size", type=int, help="Batch size for training")
+    parser.add_argument(
+        "--batch_size", type=int, help="Batch size for training"
+    )
 
     parser.add_argument(
         "--learning_rate", type=float, help="Learning rate for the optimizer"
@@ -47,7 +55,9 @@ def add_args(parser):
         "--max_epochs", type=int, help="Maximum number of epochs for training"
     )
 
-    parser.add_argument("--patience", type=int, help="Patience for early stopping")
+    parser.add_argument(
+        "--patience", type=int, help="Patience for early stopping"
+    )
 
     parser.add_argument(
         "--log_every_steps", type=int, help="Logging frequency in steps"
@@ -58,7 +68,9 @@ def add_args(parser):
     )
 
     parser.add_argument(
-        "--sample_mols", type=int, help="Number of molecules to sample for evaluation"
+        "--sample_mols",
+        type=int,
+        help="Number of molecules to sample for evaluation",
     )
 
     parser.add_argument(
@@ -91,7 +103,9 @@ def add_args(parser):
     )
 
     parser.add_argument(
-        "--conditional", action="store_true", help="Activate Conditional RNN model"
+        "--conditional",
+        action="store_true",
+        help="Activate Conditional RNN model",
     )
     parser.add_argument(
         "--conditional_emb",
@@ -131,7 +145,9 @@ def training_step(batch, model, optim, dataset, batch_size):
     return loss, validation_loss
 
 
-def sample_and_write_smiles(model, sample_mols, batch_size, smiles_file, dataset=None):
+def sample_and_write_smiles(
+    model, sample_mols, batch_size, smiles_file, dataset=None
+):
     sampled_smiles = []
     with tqdm(total=sample_mols) as pbar:
         while len(sampled_smiles) < sample_mols:
@@ -140,7 +156,9 @@ def sample_and_write_smiles(model, sample_mols, batch_size, smiles_file, dataset
                 _, _, descriptors = dataset.get_validation(batch_size)
                 descriptors = descriptors.to(model.device)
             new_smiles = model.sample(
-                n_sequences=batch_size, return_smiles=True, descriptors=descriptors
+                n_sequences=batch_size,
+                return_smiles=True,
+                descriptors=descriptors,
             )
             sampled_smiles.extend(new_smiles)
             pbar.update(len(new_smiles))
@@ -209,7 +227,9 @@ def train_models_RNN(
     loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=True, collate_fn=dataset.collate
     )
-    optim = Adam(model.parameters(), betas=(0.9, 0.999), eps=1e-08, lr=learning_rate)
+    optim = Adam(
+        model.parameters(), betas=(0.9, 0.999), eps=1e-08, lr=learning_rate
+    )
     early_stop = EarlyStopping(patience=patience)
 
     for epoch in range(max_epochs):
@@ -259,7 +279,9 @@ def train_models_RNN(
     model.load_state_dict(torch.load(model_file))
     model.eval()
     if smiles_file:
-        sample_and_write_smiles(model, sample_mols, batch_size, smiles_file, dataset)
+        sample_and_write_smiles(
+            model, sample_mols, batch_size, smiles_file, dataset
+        )
 
 
 def main(args):

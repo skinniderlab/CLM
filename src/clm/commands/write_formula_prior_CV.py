@@ -19,15 +19,21 @@ tqdm.pandas()
 
 def add_args(parser):
     parser.add_argument("--ranks_file", type=str, help="Path to the rank file.")
-    parser.add_argument("--train_file", type=str, help="Path to the training dataset.")
-    parser.add_argument("--test_file", type=str, help="Path to the test dataset.")
+    parser.add_argument(
+        "--train_file", type=str, help="Path to the training dataset."
+    )
+    parser.add_argument(
+        "--test_file", type=str, help="Path to the test dataset."
+    )
     parser.add_argument(
         "--pubchem_file",
         type=str,
         help="Path to the file containing PubChem information.",
     )
     parser.add_argument(
-        "--sample_file", type=str, help="Path to the file containing sample molecules."
+        "--sample_file",
+        type=str,
+        help="Path to the file containing sample molecules.",
     )
     parser.add_argument(
         "--err_ppm",
@@ -44,14 +50,21 @@ def add_args(parser):
 
 
 def match_molecules(row, dataset, data_type):
-    match = dataset[dataset["mass"].between(row["mass_range"][0], row["mass_range"][1])]
+    match = dataset[
+        dataset["mass"].between(row["mass_range"][0], row["mass_range"][1])
+    ]
 
     # For the PubChem dataset, not all SMILES might be valid; consider only the ones that are.
     # If a `fingerprint` column exists, then we have a valid SMILE
-    if len(match) > 0 and data_type == "PubChem" and "fingerprint" not in dataset:
+    if (
+        len(match) > 0
+        and data_type == "PubChem"
+        and "fingerprint" not in dataset
+    ):
         match = match[
             match.apply(
-                lambda x: clean_mol(x["smiles"], raise_error=False) is not None, axis=1
+                lambda x: clean_mol(x["smiles"], raise_error=False) is not None,
+                axis=1,
             )
         ]
 
@@ -82,7 +95,17 @@ def match_molecules(row, dataset, data_type):
     rank = pd.concat(
         [
             pd.DataFrame(
-                [row[["smiles", "mass", "formula", "mass_known", "formula_known"]]]
+                [
+                    row[
+                        [
+                            "smiles",
+                            "mass",
+                            "formula",
+                            "mass_known",
+                            "formula_known",
+                        ]
+                    ]
+                ]
             ).reset_index(drop=True),
             rank.reset_index(drop=True),
         ],
@@ -93,7 +116,13 @@ def match_molecules(row, dataset, data_type):
 
 
 def write_formula_prior_CV(
-    ranks_file, train_file, test_file, pubchem_file, sample_file, err_ppm, chunk_size
+    ranks_file,
+    train_file,
+    test_file,
+    pubchem_file,
+    sample_file,
+    err_ppm,
+    chunk_size,
 ):
     train = generate_df(train_file, chunk_size)
     train = train.assign(size=np.nan)
@@ -116,7 +145,13 @@ def write_formula_prior_CV(
             pubchem.columns = ["smiles", "mass", "formula", "fingerprint"]
             pubchem = pubchem.dropna(subset="fingerprint")
         case 5:
-            pubchem.columns = ["smiles", "mass", "formula", "fingerprint", "inchikey"]
+            pubchem.columns = [
+                "smiles",
+                "mass",
+                "formula",
+                "fingerprint",
+                "inchikey",
+            ]
             pubchem = pubchem.dropna(subset="fingerprint")
         case _:
             raise RuntimeError("Unexpected column count for PubChem")
