@@ -42,12 +42,26 @@ def collect_tabulated_molecules(
     # Find unique combinations of inchikey, mass, and formula, and add a
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique combination, select the first canonical smile.
-    unique = df.groupby(["inchikey", "mass", "formula"]).first().reset_index()
+    
+    # New Fixes: order by size to keep first representation later
+    df.sort_values(by=["size"], ascending=False, inplace=True)
+    
+    # Advanced fix for later? identify subset with + or - in row, apply sanitization step to generate
+    # cleaned smiles, inchikey
+    
+    # Add inchikey14 and group by this instead
+    df["inchikey14"] = df["inchikey"].astype(str).str.slice(0, 14)
+    
+    unique = df.groupby(["inchikey14"]).first().reset_index() 
+    # unique = df.groupby(["inchikey", "mass", "formula"]).first().reset_index() 
+    # removed matching by mass and formula to make merging inchikey14 delete charged representations
+    # maybe NOT a good idea
     unique["size"] = (
-        df.groupby(["inchikey", "mass", "formula"])
+        df.groupby(["inchikey14"])
         .agg({"size": "sum"})
         .reset_index(drop=True)
     )
+    unique.drop(columns=["inchikey14"], inplace=True)
     write_to_csv_file(output_file, unique)
 
     # Known smiles are all the sampled smiles found in training set,
