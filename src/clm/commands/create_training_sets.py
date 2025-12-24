@@ -189,6 +189,7 @@ def create_training_sets(
 
     generate_test_data = folds > 1
     if generate_test_data:
+        smiles = smiles.tolist()
         np.random.shuffle(smiles)
         folds = np.array_split(smiles, folds)
     else:
