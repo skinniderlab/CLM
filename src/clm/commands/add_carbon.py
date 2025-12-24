@@ -25,7 +25,7 @@ def add_args(parser):
     return parser
 
 
-def add_carbon(input_file, output_file):
+def add_carbon(input_file, output_file, verbose=False):
     # make output directories
     os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
 
@@ -49,11 +49,12 @@ def add_carbon(input_file, output_file):
     # loop over the input SMILES
     # output_smiles = list()
     for sm_idx, input_smiles in enumerate(tqdm(smiles)):
-        print(
-            "working on SMILES {} of {}: '{}' ...".format(
-                sm_idx, len(smiles), input_smiles
+        if verbose:
+            print(
+                "working on SMILES {} of {}: '{}' ...".format(
+                    sm_idx, len(smiles), input_smiles
+                )
             )
-        )
         """
         code adapted from:
         https://github.com/ml-jku/mgenerators-failure-modes/blob/master/addcarbon.py
