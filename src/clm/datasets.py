@@ -92,7 +92,7 @@ class SmilesDataset(Dataset):
         descriptors = torch.Tensor(
             pd.to_numeric(row[self.descriptor_names]).to_numpy()
         )
-        return encoded, descriptors    
+        return encoded, descriptors
 
     def get_validation(self, n_smiles):
         selected_indices = np.random.choice(self.validation_set.index, n_smiles)
