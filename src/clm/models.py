@@ -592,7 +592,9 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         super(StructuredStateSpaceSequenceModel, self).__init__()
 
         # detect device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # vocabulary
         self.vocabulary = vocabulary
@@ -667,7 +669,9 @@ class StructuredStateSpaceSequenceModel(nn.Module):
     def reset_state(self, batch_size, device=None):
         if device is None:
             device = self.device
-        self.recurrent_state = self.model.default_state(batch_size, device=device)
+        self.recurrent_state = self.model.default_state(
+            batch_size, device=device
+        )
 
     def recurrent_step(self, x_t):
         if x_t.dim() == 1:
@@ -748,7 +752,9 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         pad_token = self.vocabulary.dictionary["<PAD>"]
 
         # Create start token tensor
-        inputs = torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+        inputs = (
+            torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+        )
 
         # Setup loss function
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
@@ -803,7 +809,9 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         )
 
         if return_smiles:
-            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            outputs = [
+                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
+            ]
         else:
             outputs = sequences
 

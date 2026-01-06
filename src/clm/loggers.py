@@ -42,12 +42,16 @@ class EarlyStopping:
         # Check for NaN/Inf
         if math.isnan(val_loss) or math.isinf(val_loss):
             self.nan_counter += 1
-            print(f"NaN/Inf loss detected at step {step_idx} ({self.nan_counter}/3)")
+            print(
+                f"NaN/Inf loss detected at step {step_idx} ({self.nan_counter}/3)"
+            )
             if self.nan_counter >= 3:
                 self.stop = True
                 print("Stopping training after 3 consecutive NaN/Inf losses.")
                 if self.best_loss is not None:
-                    print(f"Best model (loss={self.best_loss:.4f}) already saved.")
+                    print(
+                        f"Best model (loss={self.best_loss:.4f}) already saved."
+                    )
             return
 
         # do nothing if early stopping is disabled
