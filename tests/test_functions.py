@@ -4,7 +4,12 @@ import pytest
 import seaborn as sns
 import pandas as pd
 import hashlib
-from clm.functions import read_file, read_csv_file, write_to_csv_file, local_seed
+from clm.functions import (
+    read_file,
+    read_csv_file,
+    write_to_csv_file,
+    local_seed,
+)
 from clm.commands.collapse_files import collapse_files
 
 
@@ -86,7 +91,11 @@ def test_read_file_all_compressed(dataset_compressed):
 
 def test_read_file_5_compressed(dataset_compressed):
     data = read_file(
-        dataset_compressed, max_lines=5, smile_only=False, stream=False, randomize=False
+        dataset_compressed,
+        max_lines=5,
+        smile_only=False,
+        stream=False,
+        randomize=False,
     )
     assert len(data) == 5
     assert (
@@ -110,7 +119,11 @@ def test_read_file_stream_compressed(dataset_compressed):
 
 def test_read_file_stream_5_compressed(dataset_compressed):
     data = read_file(
-        dataset_compressed, max_lines=5, smile_only=True, stream=True, randomize=False
+        dataset_compressed,
+        max_lines=5,
+        smile_only=True,
+        stream=True,
+        randomize=False,
     )
     with pytest.raises(TypeError):
         len(data)
@@ -174,7 +187,9 @@ def test_write_csv_uncompressed_dataframe_append(tmp_path):
     write_to_csv_file(tmp_path / "iris.csv", iris)
     write_to_csv_file(tmp_path / "iris.csv", iris2, mode="a+")
     df = read_csv_file(tmp_path / "iris.csv")
-    pd.testing.assert_frame_equal(pd.concat([iris, iris2]).reset_index(drop=True), df)
+    pd.testing.assert_frame_equal(
+        pd.concat([iris, iris2]).reset_index(drop=True), df
+    )
 
 
 def test_write_csv_compressed_dataframe_append(tmp_path):
@@ -183,7 +198,9 @@ def test_write_csv_compressed_dataframe_append(tmp_path):
     write_to_csv_file(tmp_path / "iris.csv.gz", iris)
     write_to_csv_file(tmp_path / "iris.csv.gz", iris2, mode="a+")
     df = read_csv_file(tmp_path / "iris.csv.gz")
-    pd.testing.assert_frame_equal(pd.concat([iris, iris2]).reset_index(drop=True), df)
+    pd.testing.assert_frame_equal(
+        pd.concat([iris, iris2]).reset_index(drop=True), df
+    )
 
 
 def test_collapse_files1(tmp_path):
@@ -202,7 +219,8 @@ def test_collapse_files1(tmp_path):
 
     output_lines = open(tmp_path / "collapsed.csv").readlines()
     assert (
-        output_lines[0] == "sepal_length,sepal_width,petal_length,petal_width,species\n"
+        output_lines[0]
+        == "sepal_length,sepal_width,petal_length,petal_width,species\n"
     )
     assert output_lines[1] == "4.3,3.0,1.1,0.1,setosa\n"
 
@@ -227,7 +245,9 @@ def test_collapse_files2(tmp_path):
         "".join(
             [
                 line.decode("utf8")
-                for line in gzip.open(tmp_path / "collapsed.csv.gz", "r").readlines()
+                for line in gzip.open(
+                    tmp_path / "collapsed.csv.gz", "r"
+                ).readlines()
             ]
         ).encode("utf8")
     ).hexdigest()
@@ -250,7 +270,8 @@ def test_collapse_files3(tmp_path):
 
     output_lines = open(tmp_path / "collapsed.csv").readlines()
     assert (
-        output_lines[0] == "sepal_length,sepal_width,petal_length,petal_width,species\n"
+        output_lines[0]
+        == "sepal_length,sepal_width,petal_length,petal_width,species\n"
     )
     assert output_lines[1] == "4.3,3.0,1.1,0.1,setosa\n"
 
@@ -275,7 +296,9 @@ def test_collapse_files4(tmp_path):
         "".join(
             [
                 line.decode("utf8")
-                for line in gzip.open(tmp_path / "collapsed.csv.gz", "r").readlines()
+                for line in gzip.open(
+                    tmp_path / "collapsed.csv.gz", "r"
+                ).readlines()
             ]
         ).encode("utf8")
     ).hexdigest()

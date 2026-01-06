@@ -26,8 +26,12 @@ logger = logging.getLogger(__name__)
 def add_args(parser):
     parser.add_argument("--ranks_file", type=str, help="Path to the rank file.")
     parser.add_argument("--tc_file", type=str, help="Path to the tc file.")
-    parser.add_argument("--train_file", type=str, help="Path to the training dataset.")
-    parser.add_argument("--test_file", type=str, help="Path to the test dataset.")
+    parser.add_argument(
+        "--train_file", type=str, help="Path to the training dataset."
+    )
+    parser.add_argument(
+        "--test_file", type=str, help="Path to the test dataset."
+    )
     parser.add_argument(
         "--pubchem_file",
         type=str,
@@ -52,7 +56,9 @@ def add_args(parser):
         help="Tc files for individual CV folds.",
     )
     parser.add_argument(
-        "--sample_file", type=str, help="Path to the file containing sample molecules."
+        "--sample_file",
+        type=str,
+        help="Path to the file containing sample molecules.",
     )
     parser.add_argument(
         "--err_ppm",
@@ -66,7 +72,10 @@ def add_args(parser):
         help="Size of chunks for processing large files.",
     )
     parser.add_argument(
-        "--top_n", type=int, default=1, help="Max. number of top ranks to save for Tc."
+        "--top_n",
+        type=int,
+        default=1,
+        help="Max. number of top ranks to save for Tc.",
     )
     return parser
 
@@ -86,14 +95,21 @@ def get_inchikey(smile):
 
 
 def match_molecules(row, dataset, data_type, top_n=1):
-    match = dataset[dataset["mass"].between(row["mass_range"][0], row["mass_range"][1])]
+    match = dataset[
+        dataset["mass"].between(row["mass_range"][0], row["mass_range"][1])
+    ]
 
     # For the PubChem dataset, not all SMILES might be valid; consider only the ones that are.
     # If a `fingerprint` column exists, then we have a valid SMILE
-    if len(match) > 0 and data_type == "PubChem" and "fingerprint" not in dataset:
+    if (
+        len(match) > 0
+        and data_type == "PubChem"
+        and "fingerprint" not in dataset
+    ):
         match = match[
             match.apply(
-                lambda x: clean_mol(x["smiles"], raise_error=False) is not None, axis=1
+                lambda x: clean_mol(x["smiles"], raise_error=False) is not None,
+                axis=1,
             )
         ]
 
@@ -145,15 +161,20 @@ def match_molecules(row, dataset, data_type, top_n=1):
             target_fps = [get_fp_obj(fp) for fp in tc["target_fingerprint"]]
         else:
             target_mols = [
-                clean_mol(smile, selfies=False) for smile in tc["target_smiles"].values
+                clean_mol(smile, selfies=False)
+                for smile in tc["target_smiles"].values
             ]
             target_fps = compute_fingerprints(target_mols, algorithm="ecfp6")
         tc["Tc"] = [
-            FingerprintSimilarity(row["fp"], target_fp) for target_fp in target_fps
+            FingerprintSimilarity(row["fp"], target_fp)
+            for target_fp in target_fps
         ]
     else:
         empty_data = {key: np.nan for key in tc.columns}
-        minimal_data = {"target_source": data_type, "target_inchikey": row_inchikey}
+        minimal_data = {
+            "target_source": data_type,
+            "target_inchikey": row_inchikey,
+        }
         tc = pd.DataFrame(
             empty_data | minimal_data,
             index=[0],
@@ -164,7 +185,13 @@ def match_molecules(row, dataset, data_type, top_n=1):
         [
             pd.DataFrame(
                 np.repeat(pd.DataFrame([row]), repeats=len(tc), axis=0),
-                columns=["smiles", "mass", "formula", "mass_known", "formula_known"],
+                columns=[
+                    "smiles",
+                    "mass",
+                    "formula",
+                    "mass_known",
+                    "formula_known",
+                ],
             ).reset_index(drop=True),
             tc.reset_index(drop=True),
         ],
@@ -201,7 +228,9 @@ def write_structural_prior_CV(
 
     test = generate_df(test_file, chunk_size)
     test["fp"] = test.apply(
-        lambda row: compute_fingerprint(clean_mol(row["smiles"]), algorithm="ecfp6"),
+        lambda row: compute_fingerprint(
+            clean_mol(row["smiles"]), algorithm="ecfp6"
+        ),
         axis=1,
     )
     test["mass_range"] = test.apply(
@@ -210,31 +239,36 @@ def write_structural_prior_CV(
     test = test.assign(mass_known=test["mass"].isin(train["mass"]))
     test = test.assign(formula_known=test["formula"].isin(train["formula"]))
 
-    logger.info("Reading PubChem file")
-    pubchem = read_csv_file(pubchem_file, delimiter="\t", header=None)
-
-    # PubChem tsv can have 3, 4 or 5 columns
-    match len(pubchem.columns):
-        case 3:
-            pubchem.columns = ["smiles", "mass", "formula"]
-        case 4:
-            pubchem.columns = ["smiles", "mass", "formula", "fingerprint"]
-            pubchem = pubchem.dropna(subset="fingerprint")
-        case 5:
-            pubchem.columns = ["smiles", "mass", "formula", "fingerprint", "inchikey"]
-            pubchem = pubchem.dropna(subset="fingerprint")
-        case _:
-            raise RuntimeError("Unexpected column count for PubChem")
-
-    pubchem = pubchem.assign(size=np.nan)
-
     logger.info("Reading sample file from generative model")
     gen = read_csv_file(sample_file)
 
-    inputs = {
-        "model": gen.assign(source="model"),
-        "PubChem": pubchem.assign(source="PubChem"),
-    }
+    inputs = {"model": gen.assign(source="model")}
+
+    if pubchem_file:
+        logger.info("Reading PubChem file")
+        pubchem = read_csv_file(pubchem_file, delimiter="\t", header=None)
+
+        # PubChem tsv can have 3, 4 or 5 columns
+        match len(pubchem.columns):
+            case 3:
+                pubchem.columns = ["smiles", "mass", "formula"]
+            case 4:
+                pubchem.columns = ["smiles", "mass", "formula", "fingerprint"]
+                pubchem = pubchem.dropna(subset="fingerprint")
+            case 5:
+                pubchem.columns = [
+                    "smiles",
+                    "mass",
+                    "formula",
+                    "fingerprint",
+                    "inchikey",
+                ]
+                pubchem = pubchem.dropna(subset="fingerprint")
+            case _:
+                raise RuntimeError("Unexpected column count for PubChem")
+
+        pubchem = pubchem.assign(size=np.nan)
+        inputs["PubChem"] = pubchem.assign(source="PubChem")
 
     # We are only comparing training set with test set for individual cv fold
     if cv_ranks_files is None and cv_tc_flies is None:
@@ -272,10 +306,14 @@ def write_structural_prior_CV(
     # Since the test sets across all folds and the train set across all fold contain exactly the same unique elements,
     # we aggregate results from all folds to assess test SMILES against training SMILES across all folds
     if cv_ranks_files is not None and cv_tc_flies is not None:
-        cv_rank_data = pd.concat([read_csv_file(f) for f in cv_ranks_files], axis=0)
+        cv_rank_data = pd.concat(
+            [read_csv_file(f) for f in cv_ranks_files], axis=0
+        )
         cv_tc_data = pd.concat([read_csv_file(f) for f in cv_tc_flies], axis=0)
 
-        train_cv_rank_data = cv_rank_data[cv_rank_data["target_source"] == "train"]
+        train_cv_rank_data = cv_rank_data[
+            cv_rank_data["target_source"] == "train"
+        ]
         train_cv_tc_data = cv_tc_data[cv_tc_data["target_source"] == "train"]
 
         rank_df = pd.concat([rank_df, train_cv_rank_data], axis=0)

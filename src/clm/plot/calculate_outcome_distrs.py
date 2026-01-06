@@ -29,7 +29,9 @@ def plot_continuous(outcomes, output_dir, value_map):
             value_map[source]: value["value"].reset_index(drop=True)
             for source, value in df.groupby("source")
         }
-        sns.kdeplot(data=data, palette=sns.color_palette("pastel"), common_norm=False)
+        sns.kdeplot(
+            data=data, palette=sns.color_palette("pastel"), common_norm=False
+        )
 
         plt.title(outcome)
         plt.ylabel("Density")
@@ -65,7 +67,9 @@ def plot_discrete(split_outcomes, output_dir, value_map, sources):
     labels = list(p_atoms_in_source.keys())
     data = np.array(list(p_atoms_in_source.values()))
     data_cum = data.cumsum(axis=1)
-    category_colors = plt.get_cmap("RdYlGn")(np.linspace(0.15, 0.85, data.shape[1]))
+    category_colors = plt.get_cmap("RdYlGn")(
+        np.linspace(0.15, 0.85, data.shape[1])
+    )
 
     fig, ax = plt.subplots(figsize=(9.2, 5))
     ax.invert_yaxis()
@@ -75,7 +79,9 @@ def plot_discrete(split_outcomes, output_dir, value_map, sources):
     for i, (colname, color) in enumerate(zip(atoms, category_colors)):
         widths = data[:, i]
         starts = data_cum[:, i] - widths
-        ax.barh(labels, widths, left=starts, height=0.5, label=colname, color=color)
+        ax.barh(
+            labels, widths, left=starts, height=0.5, label=colname, color=color
+        )
 
         r, g, b, _ = color
     ax.legend(
@@ -99,7 +105,10 @@ def plot(outcome_files, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     outcome = pd.concat(
-        [pd.read_csv(outcome_file, delimiter=",") for outcome_file in outcome_files]
+        [
+            pd.read_csv(outcome_file, delimiter=",")
+            for outcome_file in outcome_files
+        ]
     )
 
     value_map = {
@@ -118,7 +127,9 @@ def plot(outcome_files, output_dir):
             continuous[outcome_type] = df
 
     plot_continuous(continuous, output_dir, value_map)
-    plot_discrete(discrete_atoms, output_dir, value_map, set(list(outcome.source)))
+    plot_discrete(
+        discrete_atoms, output_dir, value_map, set(list(outcome.source))
+    )
 
 
 def main(args):

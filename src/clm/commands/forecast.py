@@ -20,13 +20,19 @@ logger = logging.getLogger(__name__)
 
 def add_args(parser):
     parser.add_argument(
-        "--test-file", type=str, required=True, help="File path of test file"
+        "--test_file", type=str, required=True, help="File path of test file"
     )
     parser.add_argument(
-        "--sample-file", type=str, required=True, help="File path of sample file"
+        "--sample_file",
+        type=str,
+        required=True,
+        help="File path of sample file",
     )
     parser.add_argument(
-        "--output-file", type=str, required=True, help="File path of output file"
+        "--output_file",
+        type=str,
+        required=True,
+        help="File path of output file",
     )
     parser.add_argument(
         "--max-mols",
@@ -124,7 +130,9 @@ def forecast(test_file, sample_file, output_file, max_molecules=None):
 
     ranks = sorted(set(ranks))
 
-    ef = pd.DataFrame({"rank": ranks, "EF": np.nan, "n_known": 0, "pval": np.nan})
+    ef = pd.DataFrame(
+        {"rank": ranks, "EF": np.nan, "n_known": 0, "pval": np.nan}
+    )
     for idx, rank in enumerate(ranks):
         obs = sum(y[0:rank])
         exp = rank * sum(y) / deepmet.shape[0]

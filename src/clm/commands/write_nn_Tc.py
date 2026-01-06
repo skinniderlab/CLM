@@ -13,15 +13,22 @@ logger = logging.getLogger(__name__)
 
 
 def add_args(parser):
-    parser.add_argument("--query_file", type=str, help="Path to the file to be queried")
+    parser.add_argument(
+        "--query_file", type=str, help="Path to the file to be queried"
+    )
     parser.add_argument(
         "--reference_file",
         type=str,
         help="Path to the file that the tc is being compared to",
     )
-    parser.add_argument("--pubchem_file", type=str, help="Path to the PubChem file")
     parser.add_argument(
-        "--max_molecules", type=int, default=500_000, help="Number of samples to select"
+        "--pubchem_file", type=str, help="Path to the PubChem file"
+    )
+    parser.add_argument(
+        "--max_molecules",
+        type=int,
+        default=500_000,
+        help="Number of samples to select",
     )
     parser.add_argument(
         "--output_file",
@@ -48,7 +55,9 @@ def find_max_similarity_fingerprint(
         return None, None
 
     max_tc, max_tc_ref_smile = -1, ""
-    for ref_smile, ref_fp, ref_inchikey in zip(ref_smiles, ref_fps, ref_inchikeys):
+    for ref_smile, ref_fp, ref_inchikey in zip(
+        ref_smiles, ref_fps, ref_inchikeys
+    ):
         # Avoid comparing tcs of exactly same molecule
         if not (target_inchikey == ref_inchikey):
             if max_tc < (fps := FingerprintSimilarity(target_fps, ref_fp)):
@@ -62,7 +71,10 @@ def prep_nn_tc(sample_file, pubchem_file, max_molecules):
     sample = read_csv_file(sample_file, delimiter=",")
     if len(sample) > max_molecules:
         sample = sample.sample(
-            n=max_molecules, replace=True, weights=sample["size"], ignore_index=True
+            n=max_molecules,
+            replace=True,
+            weights=sample["size"],
+            ignore_index=True,
         )
     pubchem = read_csv_file(pubchem_file, delimiter="\t", header=None)
 
@@ -92,7 +104,11 @@ def prep_nn_tc(sample_file, pubchem_file, max_molecules):
 
 
 def write_nn_Tc(
-    query_file, reference_file, output_file, pubchem_file=None, max_molecules=None
+    query_file,
+    reference_file,
+    output_file,
+    pubchem_file=None,
+    max_molecules=None,
 ):
     """
     Find nearest neighbor Tanimoto coefficient for each molecule in the query file

@@ -81,7 +81,9 @@ def plot_box_plot(novel_outcomes, output_dir):
     # Direct but very slow/memory-intensive
     # sns.boxplot(data=(novel_molecules_count, known_molecules_count), width=0.2, log_scale=(False, True))
 
-    plt.title("Frequency with which test set molecules sampled from a given CV fold")
+    plt.title(
+        "Frequency with which test set molecules sampled from a given CV fold"
+    )
     plt.ylabel("Sampling Frequency")
 
     file_path = Path(output_dir) / "freq_distr_box"
@@ -100,7 +102,9 @@ def plot(outcome_files, output_dir):
 
     for outcome_file in outcome_files:
         logger.info(f"Reading outcome file {outcome_file}")
-        data = read_csv_file(outcome_file, delimiter=",", usecols=("is_novel", "size"))
+        data = read_csv_file(
+            outcome_file, delimiter=",", usecols=("is_novel", "size")
+        )
         logger.info(f"Read outcome dataframe of shape {data.shape}")
         columns = data.columns.values.tolist()
         data = data.values.tolist()
@@ -114,7 +118,8 @@ def plot(outcome_files, output_dir):
     # E.g. True : [1, 1, 4, 5] means there are four distinct novel smiles
     # each of which were generated  once, once, four, and five times
     novel_outcomes = {
-        is_novel: df["size"].tolist() for is_novel, df in outcome.groupby("is_novel")
+        is_novel: df["size"].tolist()
+        for is_novel, df in outcome.groupby("is_novel")
     }
 
     plot_distribution(novel_outcomes, output_dir)

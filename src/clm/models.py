@@ -827,7 +827,9 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
 
         # detect device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # vocabulary
         self.vocabulary = vocabulary
@@ -928,13 +930,17 @@ class RNN(nn.Module):
         )
         # initialize hidden state
         if self.rnn_type == "LSTM":
-            hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
-                self.device
-            ), torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(self.device)
-        else:
-            hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+            hidden = torch.zeros(
+                self.n_layers, n_sequences, self.hidden_size
+            ).to(self.device), torch.zeros(
+                self.n_layers, n_sequences, self.hidden_size
+            ).to(
                 self.device
             )
+        else:
+            hidden = torch.zeros(
+                self.n_layers, n_sequences, self.hidden_size
+            ).to(self.device)
 
         # setup loss function
         loss = nn.NLLLoss(reduction="none", ignore_index=pad_token)
@@ -948,7 +954,9 @@ class RNN(nn.Module):
             output, hidden = self.rnn(embedded, hidden)
             logits = self.decoder(output)
             prob = F.softmax(logits, dim=2)
-            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(1, -1)
+            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(
+                1, -1
+            )
             sequences.append(inputs.view(-1, 1))
             # calculate NLL too
             log_prob = F.log_softmax(logits.squeeze(0), dim=1)
@@ -964,7 +972,9 @@ class RNN(nn.Module):
         # concatenate sequences and decode
         seqs = torch.cat(sequences, 1)
         if return_smiles:
-            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            outputs = [
+                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
+            ]
         else:
             outputs = sequences
 
@@ -997,7 +1007,9 @@ class CausalSelfAttention(nn.Module):
 
         # from nanoGPT:
         # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
-        self.flash = hasattr(torch.nn.functional, "scaled_dot_product_attention")
+        self.flash = hasattr(
+            torch.nn.functional, "scaled_dot_product_attention"
+        )
         if not self.flash:
             print("WARNING: using slow attention")
             # causal mask to ensure that attention is only applied to the
@@ -1055,22 +1067,30 @@ class LayerNorm(nn.Module):
         self.bias = nn.Parameter(torch.zeros(ndim)) if bias else None
 
     def forward(self, input):
-        return F.layer_norm(input, self.weight.shape, self.weight, self.bias, 1e-5)
+        return F.layer_norm(
+            input, self.weight.shape, self.weight, self.bias, 1e-5
+        )
 
 
 class MLP(nn.Module):
-    def __init__(self, embedding_size=256, exp_factor=4, dropout=0.1, bias=True):
+    def __init__(
+        self, embedding_size=256, exp_factor=4, dropout=0.1, bias=True
+    ):
         super().__init__()
         self.embedding_size = embedding_size
         self.exp_factor = exp_factor
         self.dropout = dropout
         self.bias = bias
         self.c_fc = nn.Linear(
-            self.embedding_size, self.exp_factor * self.embedding_size, bias=self.bias
+            self.embedding_size,
+            self.exp_factor * self.embedding_size,
+            bias=self.bias,
         )
         self.gelu = nn.GELU()
         self.c_proj = nn.Linear(
-            self.exp_factor * self.embedding_size, self.embedding_size, bias=self.bias
+            self.exp_factor * self.embedding_size,
+            self.embedding_size,
+            bias=self.bias,
         )
         self.dropout = nn.Dropout(self.dropout)
 
@@ -1137,7 +1157,9 @@ class Transformer(nn.Module):
         super(Transformer, self).__init__()
 
         # detect device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # vocabulary
         self.vocabulary = vocabulary
@@ -1157,7 +1179,9 @@ class Transformer(nn.Module):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(
-                    self.vocabulary_size, self.embedding_size, padding_idx=padding_t
+                    self.vocabulary_size,
+                    self.embedding_size,
+                    padding_idx=padding_t,
                 ),
                 wpe=nn.Embedding(self.max_len, self.embedding_size),
                 drop=nn.Dropout(self.dropout),
@@ -1177,7 +1201,9 @@ class Transformer(nn.Module):
                 ln_f=LayerNorm(self.embedding_size, bias=self.bias),
             )
         )
-        self.lm_head = nn.Linear(self.embedding_size, self.vocabulary_size, bias=False)
+        self.lm_head = nn.Linear(
+            self.embedding_size, self.vocabulary_size, bias=False
+        )
         # skip weight tying per MolGPT
 
         # loss function (ignoring padding)
@@ -1246,7 +1272,12 @@ class Transformer(nn.Module):
         return loss.mean()
 
     def sample(
-        self, *, n_sequences, return_smiles=True, return_losses=False, descriptors=None
+        self,
+        *,
+        n_sequences,
+        return_smiles=True,
+        return_losses=False,
+        descriptors=None,
     ):
         # Reset recurrent state before sampling
         self.reset_state(n_sequences, device=self.device)
@@ -1293,7 +1324,9 @@ class Transformer(nn.Module):
             losses[finished.bool()] = 0
             log_probs += losses
             # track whether sampling is done for all molecules
-            finished = torch.ge(finished + (outputs.squeeze(1) == stop_token), 1)
+            finished = torch.ge(
+                finished + (outputs.squeeze(1) == stop_token), 1
+            )
             if torch.prod(finished) == 1:
                 break
 
@@ -1306,7 +1339,9 @@ class Transformer(nn.Module):
             .to(self.device)
         )
         if return_smiles:
-            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            outputs = [
+                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
+            ]
         else:
             outputs = sequences
 
@@ -1342,7 +1377,9 @@ class ConditionalRNN(nn.Module):
         conditional_h=False,
     ):
         super(ConditionalRNN, self).__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.vocabulary = vocabulary
         self.vocabulary_size = len(self.vocabulary)
         self.conditional_emb = conditional_emb
@@ -1452,7 +1489,9 @@ class ConditionalRNN(nn.Module):
         # extract the elements of a single minibatch
         padded, lengths, descriptors = batch
         # move to the gpu
-        padded, descriptors = padded.to(self.device), descriptors.to(self.device)
+        padded, descriptors = padded.to(self.device), descriptors.to(
+            self.device
+        )
 
         # embed the padded sequence, along with the descriptors
         embedded = self.embedding(padded)
@@ -1461,7 +1500,9 @@ class ConditionalRNN(nn.Module):
             embedded = self.dropout(embedded)
         # cat descriptors along dimension of emb_size
         # descriptors_repeating: max_len x batch_size x 1
-        descriptors_repeating = descriptors.unsqueeze(0).repeat(max(lengths), 1, 1)
+        descriptors_repeating = descriptors.unsqueeze(0).repeat(
+            max(lengths), 1, 1
+        )
 
         if self.conditional_emb_l:
             combined_embedding_features = self.conditional_to_emb(
@@ -1473,7 +1514,9 @@ class ConditionalRNN(nn.Module):
             ).float()
             # embedded: max_len x batch_size x (2x emb_size)
         elif self.conditional_emb:
-            embedded = torch.cat([embedded, descriptors_repeating], axis=2).float()
+            embedded = torch.cat(
+                [embedded, descriptors_repeating], axis=2
+            ).float()
         # -> embedded: max_len x batch_size x (emb_size + number of features)
 
         # now pack the embedded sequences [packed : sum of len x embedding_size]
@@ -1555,9 +1598,13 @@ class ConditionalRNN(nn.Module):
                 descriptors
             )  # Initializing hidden state based on number of layers
         else:
-            hidden = torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(
+            hidden = torch.zeros(
+                self.n_layers, n_sequences, self.hidden_size
+            ).to(self.device), torch.zeros(
+                self.n_layers, n_sequences, self.hidden_size
+            ).to(
                 self.device
-            ), torch.zeros(self.n_layers, n_sequences, self.hidden_size).to(self.device)
+            )
 
         # repeat descriptors
         descriptors = descriptors.view(1, n_sequences, descriptors.shape[1])
@@ -1571,21 +1618,29 @@ class ConditionalRNN(nn.Module):
         for step in range(max_len):
             embedded = self.embedding(inputs)
             if self.conditional_emb_l:
-                combined_embedding = self.conditional_to_emb(descriptors.float())
-                embedded = torch.cat([embedded, combined_embedding], axis=2).float()
+                combined_embedding = self.conditional_to_emb(
+                    descriptors.float()
+                )
+                embedded = torch.cat(
+                    [embedded, combined_embedding], axis=2
+                ).float()
             elif self.conditional_emb:
                 embedded = torch.cat([embedded, descriptors], axis=2).float()
 
             output, hidden = self.rnn(embedded, hidden)
             if self.conditional_dec_l:
-                combined_embedding = self.conditional_to_dec(descriptors.float())
+                combined_embedding = self.conditional_to_dec(
+                    descriptors.float()
+                )
                 output = torch.cat([output, combined_embedding], axis=2).float()
             elif self.conditional_dec:
                 output = torch.cat([output, descriptors], axis=2).float()
 
             logits = self.decoder(output)
             prob = F.softmax(logits, dim=2)
-            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(1, -1)
+            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(
+                1, -1
+            )
             sequences.append(inputs.view(-1, 1))
             log_prob = F.log_softmax(logits.squeeze(0), dim=1)
             losses = loss(log_prob, inputs.squeeze(0))

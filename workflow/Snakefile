@@ -301,9 +301,9 @@ rule forecast:
         runtime=30,
     shell:
         'clm forecast '
-        '--test-file {input.test_file} '
-        '--sample-file {input.sample_file} '
-        '--output-file {output.output_file} '
+        '--test_file {input.test_file} '
+        '--sample_file {input.sample_file} '
+        '--output_file {output.output_file} '
         '--seed {config[random_seed]} '
 
 

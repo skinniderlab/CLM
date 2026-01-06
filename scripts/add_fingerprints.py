@@ -39,7 +39,10 @@ if __name__ == "__main__":
 
     logger.info("Reading PubChem file")
     df = read_csv_file(
-        input_tsv, delimiter="\t", header=None, names=["smile", "mass", "formula"]
+        input_tsv,
+        delimiter="\t",
+        header=None,
+        names=["smile", "mass", "formula"],
     )
 
     n_threads = int(os.environ.get("SLURM_NPROCS", 1))

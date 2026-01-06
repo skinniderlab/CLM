@@ -10,7 +10,13 @@ import pathlib
 from selfies import decoder
 from tqdm import tqdm
 from rdkit import Chem
-from rdkit.Chem import AllChem, Lipinski, rdmolops, Descriptors, rdMolDescriptors
+from rdkit.Chem import (
+    AllChem,
+    Lipinski,
+    rdmolops,
+    Descriptors,
+    rdMolDescriptors,
+)
 from rdkit.DataStructs import FingerprintSimilarity
 import torch
 from scipy import histogram
@@ -27,7 +33,12 @@ converter = deepsmiles.Converter(rings=True, branches=True)
 
 
 def clean_mol(
-    smiles, *, stereochem=False, selfies=False, deepsmiles=False, raise_error=True
+    smiles,
+    *,
+    stereochem=False,
+    selfies=False,
+    deepsmiles=False,
+    raise_error=True,
 ):
     """
     Construct a molecule from a SMILES string, removing stereochemistry and
@@ -89,7 +100,10 @@ def clean_mols(
     for smile in tqdm(all_smiles, disable=disable_progress):
         try:
             mol = clean_mol(
-                smile, stereochem=stereochem, selfies=selfies, deepsmiles=deepsmiles
+                smile,
+                stereochem=stereochem,
+                selfies=selfies,
+                deepsmiles=deepsmiles,
             )
             mols[smile] = mol
         except ValueError:
@@ -113,7 +127,9 @@ def remove_salts_solvents(mol, hac=3):
     # keep heaviest only
     # fragments.sort(reverse=True, key=lambda m: m.GetNumAtoms())
     # remove fragments with < 'hac' heavy atoms
-    fragments = [fragment for fragment in fragments if fragment.GetNumAtoms() > hac]
+    fragments = [
+        fragment for fragment in fragments if fragment.GetNumAtoms() > hac
+    ]
     #
     if len(fragments) > 1:
         warnings.warn(
@@ -203,7 +219,9 @@ def read_file(
             first_line = f.readline()
 
             for sep in (",", "\t", " "):
-                first_line_tokens = next(csv.reader([first_line], delimiter=sep))
+                first_line_tokens = next(
+                    csv.reader([first_line], delimiter=sep)
+                )
                 has_header = "smiles" in first_line_tokens
                 is_csv = has_header or len(first_line_tokens) > 1
                 if is_csv:
@@ -214,7 +232,10 @@ def read_file(
             max_lines = None
 
         dataframe = pd.read_csv(
-            input_file, header=0 if has_header else None, nrows=max_lines, sep=sep
+            input_file,
+            header=0 if has_header else None,
+            nrows=max_lines,
+            sep=sep,
         )
 
         # Handle legacy files - no header, and a single column for the SMILE strings
@@ -264,7 +285,9 @@ def write_smiles(smiles, smiles_file, add_inchikeys=False, extra_data=None):
     os.makedirs(os.path.dirname(os.path.abspath(smiles_file)), exist_ok=True)
     df = pd.DataFrame(smiles, columns=["smiles"])
     if add_inchikeys:
-        df["inchikey"] = df.apply(lambda row: get_inchikey(row["smiles"]), axis=1)
+        df["inchikey"] = df.apply(
+            lambda row: get_inchikey(row["smiles"]), axis=1
+        )
         if extra_data is not None:
             extra_data = extra_data.drop("smiles", axis=1, errors="ignore")
             df = df.merge(extra_data, how="left", on="inchikey")
@@ -301,7 +324,9 @@ def _InitialiseNeutralisationReactions():
         # Amides
         ("[$([N-]C=O)]", "N"),
     )
-    return [(Chem.MolFromSmarts(x), Chem.MolFromSmiles(y, False)) for x, y in patts]
+    return [
+        (Chem.MolFromSmarts(x), Chem.MolFromSmiles(y, False)) for x, y in patts
+    ]
 
 
 _reactions = None
@@ -356,8 +381,12 @@ def continuous_JSD(generated_dist, original_dist, tol=1e-10):
 def discrete_JSD(generated_dist, original_dist, tol=1e-10):
     min_v = min(min(generated_dist), min(original_dist))
     max_v = max(max(generated_dist), max(original_dist))
-    gen, bins = histogram(generated_dist, bins=range(min_v, max_v + 1, 1), density=True)
-    org, bins = histogram(original_dist, bins=range(min_v, max_v + 1, 1), density=True)
+    gen, bins = histogram(
+        generated_dist, bins=range(min_v, max_v + 1, 1), density=True
+    )
+    org, bins = histogram(
+        original_dist, bins=range(min_v, max_v + 1, 1), density=True
+    )
     gen += tol
     org += tol
     return jensenshannon(gen, org)
@@ -489,7 +518,8 @@ def generate_df(smiles_file, chunk_size):
     smiles_df = read_csv_file(smiles_file)
 
     smiles_df = smiles_df.drop(
-        [col for col in smiles_df.columns if col not in ("smiles", "inchikey")], axis=1
+        [col for col in smiles_df.columns if col not in ("smiles", "inchikey")],
+        axis=1,
     )
 
     smiles = smiles_df["smiles"].to_list()
@@ -572,10 +602,17 @@ def split_frequency_ranges(data, max_molecules=None, all=False):
     data = data.reset_index(drop=True)
 
     # TODO: make this process dynamic later
-    frequency_ranges = [(1, 1), (2, 2), (3, 10), (11, 30), (31, 100), (101, None)]
+    frequency_ranges = [
+        (1, 1),
+        (2, 2),
+        (3, 10),
+        (11, 30),
+        (31, 100),
+        (101, None),
+    ]
 
     data["bin"] = ""
-    for (f_min, f_max) in frequency_ranges:
+    for f_min, f_max in frequency_ranges:
         if f_max is not None:
             selected_rows = data[data["size"].between(f_min, f_max)]
         else:
