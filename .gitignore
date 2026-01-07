@@ -22,3 +22,6 @@ __pycache__
 
 # version file (managed by setuptools-scm)
 src/clm/_version.py
+
+# Snakemake logs
+.snakemake
