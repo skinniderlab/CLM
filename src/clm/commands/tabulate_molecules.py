@@ -40,8 +40,10 @@ def add_args(parser):
 def tabulate_molecules(input_file, train_file, representation, output_file):
     train_data = read_csv_file(train_file)
     # use inchikey14 for training set check/removal
-    train_ik14 = set(train_data["inchikey"].astype(str).str.split("-", n=1).str[0])
-    
+    train_ik14 = set(
+        train_data["inchikey"].astype(str).str.split("-", n=1).str[0]
+    )
+
     sampled_smiles_df = read_file(input_file, stream=False, smile_only=False)
     if "smiles" in sampled_smiles_df.columns:
         sampled_smiles = sampled_smiles_df["smiles"]
@@ -91,17 +93,13 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique combination, select the largest sized canonical smile by ik14.
     freqs["ik14"] = freqs["inchikey"].astype(str).str.split("-", n=1).str[0]
-    unique = freqs.groupby(["ik14"]).first().reset_index() 
-    unique["size"] = (
-        freqs.groupby(["ik14"])
-        .size()
-        .reset_index(drop=True)
-    )
+    unique = freqs.groupby(["ik14"]).first().reset_index()
+    unique["size"] = freqs.groupby(["ik14"]).size().reset_index(drop=True)
     unique = unique.sort_values(
         "size", ascending=False, kind="stable"
     ).reset_index(drop=True)
     unique = unique.drop(columns=["ik14"])
-    
+
     write_to_csv_file(output_file, unique)
     # TODO: The following approach will result in multiple lines for each repeated smile
     write_to_csv_file(

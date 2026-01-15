@@ -43,18 +43,16 @@ def collect_tabulated_molecules(
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique key, select the most sampled canonical smile.
     df.sort_values(by=["size"], ascending=False, inplace=True)
-    
-    # May need to later identify subset with + or - in row, 
+
+    # May need to later identify subset with + or - in row,
     # apply sanitization step to generate cleaned smiles, inchikey
-    
+
     # Add inchikey14 and group by this instead
     df["inchikey14"] = df["inchikey"].astype(str).str.split("-", n=1).str[0]
-    
-    unique = df.groupby(["ik14"]).first().reset_index() 
+
+    unique = df.groupby(["ik14"]).first().reset_index()
     unique["size"] = (
-        df.groupby(["ik14"])
-        .agg({"size": "sum"})
-        .reset_index(drop=True)
+        df.groupby(["ik14"]).agg({"size": "sum"}).reset_index(drop=True)
     )
     unique.drop(columns=["ik14"], inplace=True)
     write_to_csv_file(output_file, unique)
