@@ -13,3 +13,4 @@ dependencies:
   - pip
   - pip:
     - -r requirements.txt
+    - s4dd @ git+https://github.com/GuptaVishu2002/s4-for-de-novo-drug-design.git@fix-module-library-packaging
