@@ -693,12 +693,11 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         padded = padded.to(self.device)
 
         # Handle different input formats
-        # RNN format is typically (seq_len, batch_size)
-        # S4/Transformer format is typically (batch_size, seq_len)
+        # RNN collate returns (seq_len, batch_size) format
+        # S4 model expects (batch_size, seq_len) format
+        # Always transpose since collate always uses (seq_len, batch_size)
         if padded.dim() == 2:
-            if padded.shape[0] > padded.shape[1]:
-                # Likely (seq_len, batch_size), transpose to (batch_size, seq_len)
-                padded = padded.transpose(0, 1)
+            padded = padded.transpose(0, 1)
 
         # batch_size = padded.shape[0]
         # seq_len = padded.shape[1]
@@ -1262,6 +1261,11 @@ class Transformer(nn.Module):
             padded, lengths = batch
 
         padded = padded.to(self.device)
+
+        # RNN collate returns (seq_len, batch_size) format
+        # Transformer expects (batch_size, seq_len) format
+        if padded.dim() == 2:
+            padded = padded.transpose(0, 1)
 
         # Get actual sequence length from batch
         actual_seq_len = padded.shape[1]
