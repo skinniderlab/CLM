@@ -1361,7 +1361,7 @@ class Transformer(nn.Module):
         else:
             outputs = sequences
 
-        torch.cuda.empty_cache()    
+        torch.cuda.empty_cache()
 
         # optionally return losses
         if return_losses:
