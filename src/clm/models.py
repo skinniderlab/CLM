@@ -1292,7 +1292,10 @@ class Transformer(nn.Module):
         descriptors=None,
     ):
         # Reset recurrent state before sampling
-        self.reset_state(n_sequences, device=self.device)
+        # self.reset_state(n_sequences, device=self.device)
+
+        self.eval()
+        torch.cuda.empty_cache()
 
         # get start/stop tokens
         start_token = self.vocabulary.dictionary["SOS"]
@@ -1315,32 +1318,33 @@ class Transformer(nn.Module):
         finished = torch.zeros(n_sequences).byte().to(self.device)
         log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-        for step in range(self.max_len):
-            logits = self(inputs)[:, -1, :]
-            # Clamp logits to prevent inf/nan
-            logits = torch.clamp(logits, min=-1e4, max=1e4)
-            prob = F.softmax(logits, dim=-1)
+        with torch.no_grad():
+            for step in range(self.max_len):
+                logits = self(inputs)[:, -1, :]
+                # Clamp logits to prevent inf/nan
+                logits = torch.clamp(logits, min=-1e4, max=1e4)
+                prob = F.softmax(logits, dim=-1)
 
-            # Check for invalid values and skip if found
-            if torch.isnan(prob).any() or torch.isinf(prob).any():
-                break
+                # Check for invalid values and skip if found
+                if torch.isnan(prob).any() or torch.isinf(prob).any():
+                    break
 
-            outputs = torch.multinomial(prob, num_samples=1)
-            # append to growing sequence
-            inputs = torch.cat((inputs, outputs), dim=1)
-            sequences.append(outputs)
-            # calculate NLL too
-            log_prob = F.log_softmax(logits, dim=1)
-            losses = loss(log_prob, outputs.squeeze(1))
-            # zero losses if we are finished sampling
-            losses[finished.bool()] = 0
-            log_probs += losses
-            # track whether sampling is done for all molecules
-            finished = torch.ge(
-                finished + (outputs.squeeze(1) == stop_token), 1
-            )
-            if torch.prod(finished) == 1:
-                break
+                outputs = torch.multinomial(prob, num_samples=1)
+                # append to growing sequence
+                inputs = torch.cat((inputs, outputs), dim=1)
+                sequences.append(outputs)
+                # calculate NLL too
+                log_prob = F.log_softmax(logits, dim=1)
+                losses = loss(log_prob, outputs.squeeze(1))
+                # zero losses if we are finished sampling
+                losses[finished.bool()] = 0
+                log_probs += losses
+                # track whether sampling is done for all molecules
+                finished = torch.ge(
+                    finished + (outputs.squeeze(1) == stop_token), 1
+                )
+                if torch.prod(finished) == 1:
+                    break
 
         # concatenate sequences and decode
         seqs = (
@@ -1356,6 +1360,8 @@ class Transformer(nn.Module):
             ]
         else:
             outputs = sequences
+
+        torch.cuda.empty_cache()    
 
         # optionally return losses
         if return_losses:
