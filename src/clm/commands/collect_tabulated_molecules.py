@@ -48,7 +48,7 @@ def collect_tabulated_molecules(
     # apply sanitization step to generate cleaned smiles, inchikey
 
     # Add inchikey14 and group by this instead
-    df["inchikey14"] = df["inchikey"].astype(str).str.split("-", n=1).str[0]
+    df["ik14"] = df["inchikey"].astype(str).str.split("-", n=1).str[0]
 
     unique = df.groupby(["ik14"]).first().reset_index()
     unique["size"] = (
