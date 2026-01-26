@@ -18,11 +18,14 @@ classifiers = [
 
 dependencies = [
     "deepsmiles",
+    "einops",
     "fcd_torch",
     "numpy",
+    "opt_einsum",
     "pandas",
     "pulp<2.8.0",
     "rdkit",
+    "s4dd @ git+https://github.com/GuptaVishu2002/s4-for-de-novo-drug-design.git@fix-module-library-packaging",
     "scikit-learn",
     "scipy==1.11.1",
     "selfies",

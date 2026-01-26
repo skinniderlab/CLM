@@ -242,6 +242,33 @@ def test_02_train_models_conditional_RNN(tmp_path):
     # so we simply ensure that this step runs without errors.
 
 
+def test_02_train_models_S4(tmp_path):
+    train_models_RNN.train_models_RNN(
+        representation="SMILES",
+        rnn_type="S4",
+        embedding_size=32,
+        hidden_size=256,
+        n_layers=3,
+        dropout=0,
+        batch_size=64,
+        learning_rate=0.001,
+        max_epochs=3,
+        patience=5000,
+        log_every_steps=100,
+        log_every_epochs=1,
+        sample_mols=100,
+        input_file=test_dir
+        / "0/prior/inputs/train_LOTUS_truncated_SMILES_0.smi",
+        vocab_file=test_dir
+        / "0/prior/inputs/train_LOTUS_truncated_SMILES_0.vocabulary",
+        model_file=tmp_path / "LOTUS_truncated_SMILES_0_0_model.pt",
+        loss_file=tmp_path / "LOTUS_truncated_SMILES_0_0_loss.csv",
+        smiles_file=None,
+    )
+    # Model loss values can vary between platforms and architectures,
+    # so we simply ensure that this step runs without errors.
+
+
 def test_03_sample_molecules_RNN(tmp_path):
     output_file = (
         tmp_path / "0/prior/samples/LOTUS_truncated_SMILES_0_0_0_samples.csv"

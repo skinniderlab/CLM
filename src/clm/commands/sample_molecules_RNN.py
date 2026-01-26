@@ -6,7 +6,12 @@ import torch
 from tqdm import tqdm
 
 from clm.datasets import Vocabulary, SelfiesVocabulary
-from clm.models import RNN, ConditionalRNN
+from clm.models import (
+    RNN,
+    ConditionalRNN,
+    Transformer,
+    StructuredStateSpaceSequenceModel,
+)  # , H3Model, H3ConvModel, HyenaModel
 from clm.functions import load_dataset, write_to_csv_file
 
 logger = logging.getLogger(__name__)
@@ -132,7 +137,8 @@ def sample_molecules_RNN(
         vocab = Vocabulary(vocab_file=vocab_file)
 
     heldout_dataset = None
-    if conditional:
+
+    if rnn_type == "S4":
         assert (
             heldout_file is not None
         ), "heldout_file must be provided for conditional RNN Model"
@@ -141,29 +147,124 @@ def sample_molecules_RNN(
             input_file=heldout_file,
             vocab_file=vocab_file,
         )
-        model = ConditionalRNN(
-            vocab,
-            rnn_type=rnn_type,
+        model = StructuredStateSpaceSequenceModel(
+            vocabulary=vocab,  # heldout_dataset.vocabulary
+            model_dim=embedding_size,
+            state_dim=64,
             n_layers=n_layers,
-            embedding_size=embedding_size,
-            hidden_size=hidden_size,
+            n_ssm=1,
             dropout=dropout,
-            num_descriptors=heldout_dataset.n_descriptors,
-            conditional_emb=conditional_emb,
-            conditional_emb_l=conditional_emb_l,
-            conditional_dec=conditional_dec,
-            conditional_dec_l=conditional_dec_l,
-            conditional_h=conditional_h,
         )
+    # elif rnn_type == "H3":
+    #     assert (
+    #         heldout_file is not None
+    #     ), "heldout_file must be provided for conditional RNN Model"
+    #     heldout_dataset = load_dataset(
+    #         representation=representation,
+    #         input_file=heldout_file,
+    #         vocab_file=vocab_file,
+    #     )
+    #     model = H3Model(
+    #         vocabulary=vocab,
+    #         n_layers=n_layers,
+    #         d_model=embedding_size,
+    #         d_state=64,
+    #         head_dim=1,
+    #         dropout=dropout,
+    #         max_len=250,
+    #         use_fast_fftconv=False,
+    #     )
+    # elif rnn_type == "H3Conv":
+    #     assert (
+    #         heldout_file is not None
+    #     ), "heldout_file must be provided for conditional RNN Model"
+    #     heldout_dataset = load_dataset(
+    #         representation=representation,
+    #         input_file=heldout_file,
+    #         vocab_file=vocab_file,
+    #     )
+    #     model = H3ConvModel(
+    #         vocabulary=vocab,
+    #         n_layers=n_layers,
+    #         d_model=embedding_size,
+    #         head_dim=1,
+    #         dropout=dropout,
+    #         max_len=250,
+    #         use_fast_fftconv=False,
+    #     )
+    # elif rnn_type == "Hyena":
+    #     assert (
+    #         heldout_file is not None
+    #     ), "heldout_file must be provided for conditional RNN Model"
+    #     heldout_dataset = load_dataset(
+    #         representation=representation,
+    #         input_file=heldout_file,
+    #         vocab_file=vocab_file,
+    #     )
+    #     model = HyenaModel(
+    #         vocabulary=vocab,
+    #         n_layers=n_layers,
+    #         d_model=embedding_size,
+    #         order=2,
+    #         filter_order=64,
+    #         num_heads=1,
+    #         dropout=dropout,
+    #         max_len=250,
+    #         inner_factor=1,
+    #     )
+
+    elif rnn_type == "Transformer":
+        assert (
+            heldout_file is not None
+        ), "heldout_file must be provided for conditional RNN Model"
+        heldout_dataset = load_dataset(
+            representation=representation,
+            input_file=heldout_file,
+            vocab_file=vocab_file,
+        )
+        model = Transformer(
+            vocabulary=vocab,
+            n_blocks=n_layers,
+            n_heads=4,
+            embedding_size=embedding_size,
+            dropout=dropout,
+            exp_factor=4,
+            bias=True,
+        )
+
     else:
-        model = RNN(
-            vocab,
-            rnn_type=rnn_type,
-            n_layers=n_layers,
-            embedding_size=embedding_size,
-            hidden_size=hidden_size,
-            dropout=dropout,
-        )
+        if conditional:
+            assert (
+                heldout_file is not None
+            ), "heldout_file must be provided for conditional RNN Model"
+            heldout_dataset = load_dataset(
+                representation=representation,
+                input_file=heldout_file,
+                vocab_file=vocab_file,
+            )
+            model = ConditionalRNN(
+                vocab,
+                rnn_type=rnn_type,
+                n_layers=n_layers,
+                embedding_size=embedding_size,
+                hidden_size=hidden_size,
+                dropout=dropout,
+                num_descriptors=heldout_dataset.n_descriptors,
+                conditional_emb=conditional_emb,
+                conditional_emb_l=conditional_emb_l,
+                conditional_dec=conditional_dec,
+                conditional_dec_l=conditional_dec_l,
+                conditional_h=conditional_h,
+            )
+        else:
+            model = RNN(
+                vocab,
+                rnn_type=rnn_type,
+                n_layers=n_layers,
+                embedding_size=embedding_size,
+                hidden_size=hidden_size,
+                dropout=dropout,
+            )
     logging.info(vocab.dictionary)
 
     if torch.cuda.is_available():
@@ -183,8 +284,12 @@ def sample_molecules_RNN(
             n_sequences = min(batch_size, sample_mols - i)
             descriptors = None
             if heldout_dataset is not None:
+                # Use modulo to cycle through heldout_dataset
+                descriptor_indices = [
+                    (i + j) % len(heldout_dataset) for j in range(n_sequences)
+                ]
                 descriptors = torch.stack(
-                    [heldout_dataset[_i][1] for _i in range(i, i + n_sequences)]
+                    [heldout_dataset[idx][1] for idx in descriptor_indices]
                 )
                 descriptors = descriptors.to(model.device)
             sampled_smiles, losses = model.sample(
