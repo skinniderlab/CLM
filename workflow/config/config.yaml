@@ -13,6 +13,15 @@ folds: 10
 # Each fold trains 'train_seeds' number of models on the training set for that fold.
 train_seeds:
   - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
 
 # Seeds used when sampling molecules from the trained models.
 # The number of 'sample_seeds' values specifies how many times the 'sample_molecules_RNN' step is executed,
@@ -29,6 +38,10 @@ sample_seeds:
 # than those provided in the original dataset.
 enum_factors:
   - 0
+  - 10
+  - 30
+  - 50
+  - 100
 
 #  Limits the maximum number of input SMILES to be read from the original dataset. 0 means there's no limit.
 max_input_smiles: 0
