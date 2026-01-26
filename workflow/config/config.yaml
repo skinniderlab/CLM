@@ -13,15 +13,6 @@ folds: 10
 # Each fold trains 'train_seeds' number of models on the training set for that fold.
 train_seeds:
   - 0
-  - 1
-  - 2
-  - 3
-  - 4
-  - 5
-  - 6
-  - 7
-  - 8
-  - 9
 
 # Seeds used when sampling molecules from the trained models.
 # The number of 'sample_seeds' values specifies how many times the 'sample_molecules_RNN' step is executed,
@@ -38,10 +29,6 @@ sample_seeds:
 # than those provided in the original dataset.
 enum_factors:
   - 0
-  - 10
-  - 30
-  - 50
-  - 100
 
 #  Limits the maximum number of input SMILES to be read from the original dataset. 0 means there's no limit.
 max_input_smiles: 0
@@ -62,12 +49,15 @@ preprocess:
 
 # Parameters that define the neural network model and training process.
 model_params:
-  # Type of Recurrent Neural Network (RNN) to use.
-  # Available options are 'LSTM' and 'GRU'
-  rnn_type: LSTM
+  model_type: RNN # Type of model to be used. Available options are 'RNN', 'Transformer', 'S4'.
+  rnn_type: LSTM # Applicable to model_type 'RNN' only. Available options are 'LSTM' and 'GRU'
   embedding_size: 128 # Size of the embedding vectors that represent each token in the input sequence.
-  hidden_size: 1024 # Size of the hidden state of the RNN.
+  hidden_size: 1024 # Size of the hidden state of the model.
   n_layers: 3 # Number of stacked RNN layers in the model.
+  state_dim: 64 # State dimension for S4 model. Applicable if model_type is 'S4'.
+  n_ssm: 1 # Number of SSM layers for S4 model. Applicable if model_type is 'S4'.
+  n_heads: 4 # Number of attention heads for the model. Applicable if model_type is 'Transformer'.
+  exp_factor: 4 # Expansion factor for Transformer model. Applicable if model_type is 'Transformer'.
   dropout: 0 # Dropout rate applied to the RNN layer for regularization.
   batch_size: 64 # Number of samples processed before the models internal parameters are updated.
   learning_rate: 0.001 # Used by the optimizer to update model parameters.

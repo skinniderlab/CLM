@@ -33,6 +33,12 @@ def add_args(parser):
     )
 
     parser.add_argument(
+        "--model_type",
+        type=str,
+        help="Type of model used (e.g., S4, Transformer)",
+    )
+
+    parser.add_argument(
         "--rnn_type", type=str, help="Type of RNN used (e.g., LSTM, GRU)"
     )
 
@@ -45,7 +51,23 @@ def add_args(parser):
     )
 
     parser.add_argument(
-        "--n_layers", type=int, help="Number of layers in the RNN"
+        "--n_layers", type=int, help="Number of layers in the model"
+    )
+
+    parser.add_argument(
+        "--state_dim", type=int, help="State dimension for S4 model"
+    )
+
+    parser.add_argument(
+        "--n_ssm", type=int, help="Number of SSM layers for S4 model"
+    )
+
+    parser.add_argument(
+        "--n_heads", type=int, help="Number of heads for the model"
+    )
+
+    parser.add_argument(
+        "--exp_factor", type=int, help="Expansion factor for Transformer model"
     )
 
     parser.add_argument(
@@ -176,10 +198,15 @@ def sample_and_write_smiles(
 
 def train_models_RNN(
     representation,
+    model_type,
     rnn_type,
     embedding_size,
     hidden_size,
     n_layers,
+    state_dim,
+    n_ssm,
+    n_heads,
+    exp_factor,
     dropout,
     batch_size,
     learning_rate,
@@ -206,17 +233,17 @@ def train_models_RNN(
 
     dataset = load_dataset(representation, input_file, vocab_file)
 
-    if rnn_type == "S4":
+    if model_type == "S4":
         model = StructuredStateSpaceSequenceModel(
             vocabulary=dataset.vocabulary,
             model_dim=embedding_size,
-            state_dim=64,
+            state_dim=state_dim,
             n_layers=n_layers,
-            n_ssm=1,
+            n_ssm=n_ssm,
             dropout=dropout,
         )
 
-    # elif rnn_type == "H3":
+    # elif model_type == "H3":
     #     model = H3Model(
     #         vocabulary=dataset.vocabulary,
     #         n_layers=n_layers,
@@ -228,7 +255,7 @@ def train_models_RNN(
     #         use_fast_fftconv=False,
     #     )
 
-    # elif rnn_type == "H3Conv":
+    # elif model_type == "H3Conv":
     #     model = H3ConvModel(
     #         vocabulary=dataset.vocabulary,
     #         n_layers=n_layers,
@@ -239,7 +266,7 @@ def train_models_RNN(
     #         use_fast_fftconv=False,
     #     )
 
-    # elif rnn_type == "Hyena":
+    # elif model_type == "Hyena":
     #     model = HyenaModel(
     #         vocabulary=dataset.vocabulary,
     #         n_layers=n_layers,
@@ -252,18 +279,18 @@ def train_models_RNN(
     #         inner_factor=1,
     #     )
 
-    elif rnn_type == "Transformer":
+    elif model_type == "Transformer":
         model = Transformer(
             vocabulary=dataset.vocabulary,
             n_blocks=n_layers,
-            n_heads=4,
+            n_heads=n_heads,
             embedding_size=embedding_size,
             dropout=dropout,
-            exp_factor=4,
+            exp_factor=exp_factor,
             bias=True,
         )
 
-    else:
+    elif model_type == "RNN":
         if conditional:
             model = ConditionalRNN(
                 dataset.vocabulary,
@@ -288,6 +315,8 @@ def train_models_RNN(
                 hidden_size=hidden_size,
                 dropout=dropout,
             )
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
     logger.info(dataset.vocabulary.dictionary)
 
@@ -354,10 +383,15 @@ def train_models_RNN(
 def main(args):
     train_models_RNN(
         representation=args.representation,
+        model_type=args.model_type,
         rnn_type=args.rnn_type,
         embedding_size=args.embedding_size,
         hidden_size=args.hidden_size,
         n_layers=args.n_layers,
+        state_dim=args.state_dim,
+        n_ssm=args.n_ssm,
+        n_heads=args.n_heads,
+        exp_factor=args.exp_factor,
         dropout=args.dropout,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,

@@ -26,6 +26,12 @@ def add_args(parser):
     )
 
     parser.add_argument(
+        "--model_type",
+        type=str,
+        help="Type of model used (e.g., S4, Transformer)",
+    )
+
+    parser.add_argument(
         "--rnn_type", type=str, help="Type of RNN used (e.g., LSTM, GRU)"
     )
 
@@ -38,7 +44,23 @@ def add_args(parser):
     )
 
     parser.add_argument(
-        "--n_layers", type=int, help="Number of layers in the RNN"
+        "--n_layers", type=int, help="Number of layers in the model"
+    )
+
+    parser.add_argument(
+        "--state_dim", type=int, help="State dimension for S4 model"
+    )
+
+    parser.add_argument(
+        "--n_ssm", type=int, help="Number of SSM layers for S4 model"
+    )
+
+    parser.add_argument(
+        "--n_heads", type=int, help="Number of heads for the model"
+    )
+
+    parser.add_argument(
+        "--exp_factor", type=int, help="Expansion factor for Transformer model"
     )
 
     parser.add_argument(
@@ -109,10 +131,15 @@ def add_args(parser):
 
 def sample_molecules_RNN(
     representation,
+    model_type,
     rnn_type,
     embedding_size,
     hidden_size,
     n_layers,
+    state_dim,
+    n_ssm,
+    n_heads,
+    exp_factor,
     dropout,
     batch_size,
     sample_mols,
@@ -138,7 +165,7 @@ def sample_molecules_RNN(
 
     heldout_dataset = None
 
-    if rnn_type == "S4":
+    if model_type == "S4":
         assert (
             heldout_file is not None
         ), "heldout_file must be provided for conditional RNN Model"
@@ -150,12 +177,12 @@ def sample_molecules_RNN(
         model = StructuredStateSpaceSequenceModel(
             vocabulary=vocab,  # heldout_dataset.vocabulary
             model_dim=embedding_size,
-            state_dim=64,
+            state_dim=state_dim,
             n_layers=n_layers,
-            n_ssm=1,
+            n_ssm=n_ssm,
             dropout=dropout,
         )
-    # elif rnn_type == "H3":
+    # elif model_type == "H3":
     #     assert (
     #         heldout_file is not None
     #     ), "heldout_file must be provided for conditional RNN Model"
@@ -174,7 +201,7 @@ def sample_molecules_RNN(
     #         max_len=250,
     #         use_fast_fftconv=False,
     #     )
-    # elif rnn_type == "H3Conv":
+    # elif model_type == "H3Conv":
     #     assert (
     #         heldout_file is not None
     #     ), "heldout_file must be provided for conditional RNN Model"
@@ -192,7 +219,7 @@ def sample_molecules_RNN(
     #         max_len=250,
     #         use_fast_fftconv=False,
     #     )
-    # elif rnn_type == "Hyena":
+    # elif model_type == "Hyena":
     #     assert (
     #         heldout_file is not None
     #     ), "heldout_file must be provided for conditional RNN Model"
@@ -213,7 +240,7 @@ def sample_molecules_RNN(
     #         inner_factor=1,
     #     )
 
-    elif rnn_type == "Transformer":
+    elif model_type == "Transformer":
         assert (
             heldout_file is not None
         ), "heldout_file must be provided for conditional RNN Model"
@@ -225,14 +252,14 @@ def sample_molecules_RNN(
         model = Transformer(
             vocabulary=vocab,
             n_blocks=n_layers,
-            n_heads=4,
+            n_heads=n_heads,
             embedding_size=embedding_size,
             dropout=dropout,
-            exp_factor=4,
+            exp_factor=exp_factor,
             bias=True,
         )
 
-    else:
+    elif model_type == "RNN":
         if conditional:
             assert (
                 heldout_file is not None
@@ -265,6 +292,10 @@ def sample_molecules_RNN(
                 hidden_size=hidden_size,
                 dropout=dropout,
             )
+
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+
     logging.info(vocab.dictionary)
 
     if torch.cuda.is_available():
@@ -311,10 +342,15 @@ def sample_molecules_RNN(
 def main(args):
     sample_molecules_RNN(
         representation=args.representation,
+        model_type=args.model_type,
         rnn_type=args.rnn_type,
         embedding_size=args.embedding_size,
         hidden_size=args.hidden_size,
         n_layers=args.n_layers,
+        state_dim=args.state_dim,
+        n_ssm=args.n_ssm,
+        n_heads=args.n_heads,
+        exp_factor=args.exp_factor,
         dropout=args.dropout,
         batch_size=args.batch_size,
         sample_mols=args.sample_mols,
