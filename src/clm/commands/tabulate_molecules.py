@@ -39,8 +39,11 @@ def add_args(parser):
 
 def tabulate_molecules(input_file, train_file, representation, output_file):
     train_data = read_csv_file(train_file)
-    # create a dictionary from inchikey to smiles
-    train_data = train_data.set_index("inchikey")["smiles"].to_dict()
+    # use inchikey14 for training set check/removal
+    train_ik14 = set(
+        train_data["inchikey"].astype(str).str.split("-", n=1).str[0]
+    )
+
     sampled_smiles_df = read_file(input_file, stream=False, smile_only=False)
     if "smiles" in sampled_smiles_df.columns:
         sampled_smiles = sampled_smiles_df["smiles"]
@@ -75,8 +78,9 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
             mass = round(Descriptors.ExactMolWt(mol), 6)
             formula = rdMolDescriptors.CalcMolFormula(mol)
             inchikey = Chem.inchi.MolToInchiKey(mol)
+            ik14 = inchikey.split("-", 1)[0]
 
-            if inchikey not in train_data:
+            if ik14 not in train_ik14:
                 new_smiles.append([canonical_smile, mass, formula, inchikey])
             else:
                 known_smiles[canonical_smile] += 1
@@ -87,9 +91,12 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
 
     # Find unique combinations of inchikey, mass, and formula, and add a
     # `size` column denoting the frequency of occurrence of each combination.
-    # For each unique combination, select the first canonical smile.
+    # For each unique combination, select the largest sized canonical smile by ik14.
+
+    freqs["ik14"] = freqs["inchikey"].astype(str).str.split("-", n=1).str[0]
+    unique = freqs.groupby(["ik14"]).first().reset_index()
     unique = (
-        freqs.groupby(["inchikey", "mass", "formula"]).first().reset_index()
+        unique.groupby(["inchikey", "mass", "formula"]).first().reset_index()
     )
     unique["size"] = (
         freqs.groupby(["inchikey", "mass", "formula"])
@@ -99,6 +106,7 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     unique = unique.sort_values(
         "size", ascending=False, kind="stable"
     ).reset_index(drop=True)
+    unique = unique.drop(columns=["ik14"])
 
     write_to_csv_file(output_file, unique)
     # TODO: The following approach will result in multiple lines for each repeated smile
