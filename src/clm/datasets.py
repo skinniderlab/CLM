@@ -89,7 +89,10 @@ class SmilesDataset(Dataset):
             KeyError
         ):  # some callers might only be interested in the descriptors
             encoded = None
-        return encoded, torch.Tensor(pd.to_numeric(row[self.descriptor_names]))
+        descriptors = torch.Tensor(
+            pd.to_numeric(row[self.descriptor_names]).to_numpy()
+        )
+        return encoded, descriptors
 
     def get_validation(self, n_smiles):
         selected_indices = np.random.choice(self.validation_set.index, n_smiles)
