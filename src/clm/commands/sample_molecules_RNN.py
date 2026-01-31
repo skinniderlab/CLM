@@ -24,49 +24,38 @@ def add_args(parser):
         default="SMILES",
         help="Molecular representation format (one of: SMILES/SELFIES)",
     )
-
     parser.add_argument(
         "--model_type",
         type=str,
         help="Type of model used (e.g., S4, Transformer)",
     )
-
     parser.add_argument(
         "--rnn_type", type=str, help="Type of RNN used (e.g., LSTM, GRU)"
     )
-
     parser.add_argument(
         "--embedding_size", type=int, help="Size of the embedding layer"
     )
-
     parser.add_argument(
         "--hidden_size", type=int, help="Size of the hidden layers"
     )
-
     parser.add_argument(
         "--n_layers", type=int, help="Number of layers in the model"
     )
-
     parser.add_argument(
         "--state_dim", type=int, help="State dimension for S4 model"
     )
-
     parser.add_argument(
         "--n_ssm", type=int, help="Number of SSM layers for S4 model"
     )
-
     parser.add_argument(
         "--n_heads", type=int, help="Number of heads for the model"
     )
-
     parser.add_argument(
         "--exp_factor", type=int, help="Expansion factor for Transformer model"
     )
-
     parser.add_argument(
         "--dropout", type=float, help="Dropout rate for the RNN"
     )
-
     parser.add_argument(
         "--conditional",
         action="store_true",
@@ -103,22 +92,18 @@ def add_args(parser):
         nargs="+",
         help="Testing file in heldout set. Useful for sampling from a Conditional RNN model",
     )
-
     parser.add_argument(
         "--batch_size", type=int, help="Batch size for training"
     )
-
     parser.add_argument(
         "--sample_mols", type=int, help="Number of molecules to generate"
     )
-
     parser.add_argument(
         "--vocab_file",
         type=str,
         required=True,
         help="Output path for the vocabulary file ({fold} is populated automatically)",
     )
-
     parser.add_argument(
         "--model_file", type=str, help="File path to the saved trained model"
     )
