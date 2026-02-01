@@ -11,7 +11,10 @@ from clm.models import (
     ConditionalRNN,
     Transformer,
     StructuredStateSpaceSequenceModel,
-)  # , H3Model, H3ConvModel, HyenaModel
+    H3Model, 
+    H3ConvModel, 
+    HyenaModel,
+)
 from clm.loggers import EarlyStopping, track_loss, print_update
 from clm.functions import write_smiles, load_dataset
 
@@ -31,108 +34,100 @@ def add_args(parser):
         default="SMILES",
         help="Molecular representation format (one of: SMILES/SELFIES)",
     )
-
     parser.add_argument(
         "--model_type",
         type=str,
         help="Type of model used (e.g., S4, Transformer)",
     )
-
     parser.add_argument(
         "--rnn_type", type=str, help="Type of RNN used (e.g., LSTM, GRU)"
     )
-
     parser.add_argument(
         "--embedding_size", type=int, help="Size of the embedding layer"
     )
-
     parser.add_argument(
         "--hidden_size", type=int, help="Size of the hidden layers"
     )
-
     parser.add_argument(
         "--n_layers", type=int, help="Number of layers in the model"
     )
-
     parser.add_argument(
         "--state_dim", type=int, help="State dimension for S4 model"
     )
-
     parser.add_argument(
         "--n_ssm", type=int, help="Number of SSM layers for S4 model"
     )
-
     parser.add_argument(
         "--n_heads", type=int, help="Number of heads for the model"
     )
-
     parser.add_argument(
         "--exp_factor", type=int, help="Expansion factor for Transformer model"
     )
-
+    parser.add_argument(
+        "--bias", type=bool, help="Use bias in Transformer model"
+    )
+    parser.add_argument(
+        "--use_fast_fftconv", type=bool, help="Use fast FFT convolution for H3 or H3Conv model"
+    )
+    parser.add_argument(
+        "--order", type=int, help="Order for Hyena model"
+    )
+    parser.add_argument(
+        "--filter_order", type=int, help="Filter order for Hyena model"
+    )
+    parser.add_argument(
+        "--inner_factor", type=int, help="Inner factor for Hyena model"
+    )
     parser.add_argument(
         "--dropout", type=float, help="Dropout rate for the RNN"
     )
-
     parser.add_argument(
         "--batch_size", type=int, help="Batch size for training"
     )
-
     parser.add_argument(
         "--learning_rate", type=float, help="Learning rate for the optimizer"
     )
-
     parser.add_argument(
         "--max_epochs", type=int, help="Maximum number of epochs for training"
     )
-
     parser.add_argument(
         "--patience", type=int, help="Patience for early stopping"
     )
-
     parser.add_argument(
         "--log_every_steps", type=int, help="Logging frequency in steps"
     )
-
     parser.add_argument(
         "--log_every_epochs", type=int, help="Logging frequency in epochs"
     )
-
     parser.add_argument(
         "--sample_mols",
         type=int,
         help="Number of molecules to sample for evaluation",
     )
-
     parser.add_argument(
         "--input_file",
         type=str,
         required=True,
         help="Input file path for training data",
     )
-
     parser.add_argument(
         "--vocab_file",
         type=str,
         required=True,
         help="Output path for the vocabulary file ({fold} is populated automatically)",
     )
-
     parser.add_argument(
         "--smiles_file",
         type=str,
         default=None,
         help="File path for additional SMILES data (optional)",
     )
-
     parser.add_argument(
         "--model_file", type=str, help="File path to save the trained model"
     )
-
     parser.add_argument(
         "--loss_file", type=str, help="File path to save the training loss data"
     )
-
     parser.add_argument(
         "--conditional",
         action="store_true",
@@ -207,6 +202,11 @@ def train_models_RNN(
     n_ssm,
     n_heads,
     exp_factor,
+    bias,
+    use_fast_fftconv,
+    order,
+    filter_order,
+    inner_factor,
     dropout,
     batch_size,
     learning_rate,
@@ -243,41 +243,38 @@ def train_models_RNN(
             dropout=dropout,
         )
 
-    # elif model_type == "H3":
-    #     model = H3Model(
-    #         vocabulary=dataset.vocabulary,
-    #         n_layers=n_layers,
-    #         d_model=embedding_size,
-    #         d_state=64,
-    #         head_dim=1,
-    #         dropout=dropout,
-    #         max_len=250,
-    #         use_fast_fftconv=False,
-    #     )
+    elif model_type == "H3":
+        model = H3Model(
+            vocabulary=dataset.vocabulary,
+            n_layers=n_layers,
+            d_model=embedding_size,
+            d_state=state_dim,
+            head_dim=n_heads,
+            dropout=dropout,
+            use_fast_fftconv=use_fast_fftconv,
+        )
 
-    # elif model_type == "H3Conv":
-    #     model = H3ConvModel(
-    #         vocabulary=dataset.vocabulary,
-    #         n_layers=n_layers,
-    #         d_model=embedding_size,
-    #         head_dim=1,
-    #         dropout=dropout,
-    #         max_len=250,
-    #         use_fast_fftconv=False,
-    #     )
+    elif model_type == "H3Conv":
+        model = H3ConvModel(
+            vocabulary=dataset.vocabulary,
+            n_layers=n_layers,
+            d_model=embedding_size,
+            head_dim=n_heads,
+            dropout=dropout,
+            use_fast_fftconv=use_fast_fftconv,
+        )
 
-    # elif model_type == "Hyena":
-    #     model = HyenaModel(
-    #         vocabulary=dataset.vocabulary,
-    #         n_layers=n_layers,
-    #         d_model=embedding_size,
-    #         order=2,
-    #         filter_order=64,
-    #         num_heads=1,
-    #         dropout=dropout,
-    #         max_len=250,
-    #         inner_factor=1,
-    #     )
+    elif model_type == "Hyena":
+        model = HyenaModel(
+            vocabulary=dataset.vocabulary,
+            n_layers=n_layers,
+            d_model=embedding_size,
+            order=order,
+            filter_order=filter_order,
+            num_heads=n_heads,
+            dropout=dropout,
+            inner_factor=inner_factor,
+        )
 
     elif model_type == "Transformer":
         model = Transformer(
@@ -287,7 +284,7 @@ def train_models_RNN(
             embedding_size=embedding_size,
             dropout=dropout,
             exp_factor=exp_factor,
-            bias=True,
+            bias=bias,
         )
 
     elif model_type == "RNN":
@@ -392,6 +389,11 @@ def main(args):
         n_ssm=args.n_ssm,
         n_heads=args.n_heads,
         exp_factor=args.exp_factor,
+        bias=args.bias,
+        use_fast_fftconv=args.use_fast_fftconv,
+        order=args.order,
+        filter_order=args.filter_order,
+        inner_factor=args.inner_factor,
         dropout=args.dropout,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,

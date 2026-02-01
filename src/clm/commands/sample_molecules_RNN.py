@@ -11,7 +11,10 @@ from clm.models import (
     ConditionalRNN,
     Transformer,
     StructuredStateSpaceSequenceModel,
-)  # , H3Model, H3ConvModel, HyenaModel
+    H3Model, 
+    H3ConvModel, 
+    HyenaModel,
+)
 from clm.functions import load_dataset, write_to_csv_file
 
 logger = logging.getLogger(__name__)
@@ -52,6 +55,21 @@ def add_args(parser):
     )
     parser.add_argument(
         "--exp_factor", type=int, help="Expansion factor for Transformer model"
+    )
+    parser.add_argument(
+        "--bias", type=bool, help="Use bias in Transformer model"
+    )
+    parser.add_argument(
+        "--use_fast_fftconv", type=bool, help="Use fast FFT convolution for H3 or H3Conv model"
+    )
+    parser.add_argument(
+        "--order", type=int, help="Order for Hyena model"
+    )
+    parser.add_argument(
+        "--filter_order", type=int, help="Filter order for Hyena model"
+    )
+    parser.add_argument(
+        "--inner_factor", type=int, help="Inner factor for Hyena model"
     )
     parser.add_argument(
         "--dropout", type=float, help="Dropout rate for the RNN"
@@ -125,6 +143,11 @@ def sample_molecules_RNN(
     n_ssm,
     n_heads,
     exp_factor,
+    bias,
+    use_fast_fftconv,
+    order,
+    filter_order,
+    inner_factor,
     dropout,
     batch_size,
     sample_mols,
@@ -167,63 +190,63 @@ def sample_molecules_RNN(
             n_ssm=n_ssm,
             dropout=dropout,
         )
-    # elif model_type == "H3":
-    #     assert (
-    #         heldout_file is not None
-    #     ), "heldout_file must be provided for conditional RNN Model"
-    #     heldout_dataset = load_dataset(
-    #         representation=representation,
-    #         input_file=heldout_file,
-    #         vocab_file=vocab_file,
-    #     )
-    #     model = H3Model(
-    #         vocabulary=vocab,
-    #         n_layers=n_layers,
-    #         d_model=embedding_size,
-    #         d_state=64,
-    #         head_dim=1,
-    #         dropout=dropout,
-    #         max_len=250,
-    #         use_fast_fftconv=False,
-    #     )
-    # elif model_type == "H3Conv":
-    #     assert (
-    #         heldout_file is not None
-    #     ), "heldout_file must be provided for conditional RNN Model"
-    #     heldout_dataset = load_dataset(
-    #         representation=representation,
-    #         input_file=heldout_file,
-    #         vocab_file=vocab_file,
-    #     )
-    #     model = H3ConvModel(
-    #         vocabulary=vocab,
-    #         n_layers=n_layers,
-    #         d_model=embedding_size,
-    #         head_dim=1,
-    #         dropout=dropout,
-    #         max_len=250,
-    #         use_fast_fftconv=False,
-    #     )
-    # elif model_type == "Hyena":
-    #     assert (
-    #         heldout_file is not None
-    #     ), "heldout_file must be provided for conditional RNN Model"
-    #     heldout_dataset = load_dataset(
-    #         representation=representation,
-    #         input_file=heldout_file,
-    #         vocab_file=vocab_file,
-    #     )
-    #     model = HyenaModel(
-    #         vocabulary=vocab,
-    #         n_layers=n_layers,
-    #         d_model=embedding_size,
-    #         order=2,
-    #         filter_order=64,
-    #         num_heads=1,
-    #         dropout=dropout,
-    #         max_len=250,
-    #         inner_factor=1,
-    #     )
+
+    elif model_type == "H3":
+        assert (
+            heldout_file is not None
+        ), "heldout_file must be provided for conditional RNN Model"
+        heldout_dataset = load_dataset(
+            representation=representation,
+            input_file=heldout_file,
+            vocab_file=vocab_file,
+        )
+        model = H3Model(
+            vocabulary=vocab,
+            n_layers=n_layers,
+            d_model=embedding_size,
+            d_state=state_dim,
+            head_dim=n_heads,
+            dropout=dropout,
+            use_fast_fftconv=use_fast_fftconv,
+        )
+
+    elif model_type == "H3Conv":
+        assert (
+            heldout_file is not None
+        ), "heldout_file must be provided for conditional RNN Model"
+        heldout_dataset = load_dataset(
+            representation=representation,
+            input_file=heldout_file,
+            vocab_file=vocab_file,
+        )
+        model = H3ConvModel(
+            vocabulary=vocab,
+            n_layers=n_layers,
+            d_model=embedding_size,
+            head_dim=n_heads,
+            dropout=dropout,
+            use_fast_fftconv=use_fast_fftconv,
+        )
+
+    elif model_type == "Hyena":
+        assert (
+            heldout_file is not None
+        ), "heldout_file must be provided for conditional RNN Model"
+        heldout_dataset = load_dataset(
+            representation=representation,
+            input_file=heldout_file,
+            vocab_file=vocab_file,
+        )
+        model = HyenaModel(
+            vocabulary=vocab,
+            n_layers=n_layers,
+            d_model=embedding_size,
+            order=order,
+            filter_order=filter_order,
+            num_heads=n_heads,
+            dropout=dropout,
+            inner_factor=inner_factor,
+        )
 
     elif model_type == "Transformer":
         assert (
@@ -241,7 +264,7 @@ def sample_molecules_RNN(
             embedding_size=embedding_size,
             dropout=dropout,
             exp_factor=exp_factor,
-            bias=True,
+            bias=bias,
         )
 
     elif model_type == "RNN":
@@ -336,6 +359,11 @@ def main(args):
         n_ssm=args.n_ssm,
         n_heads=args.n_heads,
         exp_factor=args.exp_factor,
+        bias=args.bias,
+        use_fast_fftconv=args.use_fast_fftconv,
+        order=args.order,
+        filter_order=args.filter_order,
+        inner_factor=args.inner_factor,
         dropout=args.dropout,
         batch_size=args.batch_size,
         sample_mols=args.sample_mols,
