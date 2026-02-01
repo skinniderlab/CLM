@@ -31,7 +31,9 @@ class H3Model(nn.Module):
             )
 
         # detect device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # vocabulary
         self.vocabulary = vocabulary
@@ -54,18 +56,20 @@ class H3Model(nn.Module):
         )
 
         # H3 layers
-        self.layers = nn.ModuleList([
-            H3(
-                d_model=self.d_model,
-                d_state=self.d_state,
-                l_max=self.max_len,
-                head_dim=self.head_dim,
-                use_fast_fftconv=self.use_fast_fftconv,
-                dropout=self.dropout,
-                layer_idx=i,
-            )
-            for i in range(self.n_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                H3(
+                    d_model=self.d_model,
+                    d_state=self.d_state,
+                    l_max=self.max_len,
+                    head_dim=self.head_dim,
+                    use_fast_fftconv=self.use_fast_fftconv,
+                    dropout=self.dropout,
+                    layer_idx=i,
+                )
+                for i in range(self.n_layers)
+            ]
+        )
 
         # dropout and output
         self.norm = nn.LayerNorm(self.d_model)
@@ -163,7 +167,9 @@ class H3Model(nn.Module):
 
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
 
-        finished = torch.zeros(n_sequences, dtype=torch.bool, device=self.device)
+        finished = torch.zeros(
+            n_sequences, dtype=torch.bool, device=self.device
+        )
         log_probs = torch.zeros(n_sequences, device=self.device)
         sequences = []
 
@@ -195,12 +201,21 @@ class H3Model(nn.Module):
                 if finished.all():
                     break
 
-        seqs = torch.cat(sequences, 1) if sequences else torch.full(
-            (n_sequences, 1), start_token, dtype=torch.long, device=self.device
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.full(
+                (n_sequences, 1),
+                start_token,
+                dtype=torch.long,
+                device=self.device,
+            )
         )
 
         if return_smiles:
-            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            outputs = [
+                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
+            ]
         else:
             outputs = sequences
 
@@ -229,7 +244,9 @@ class H3ConvModel(nn.Module):
             )
 
         # detect device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # vocabulary
         self.vocabulary = vocabulary
@@ -251,17 +268,19 @@ class H3ConvModel(nn.Module):
         )
 
         # H3Conv layers
-        self.layers = nn.ModuleList([
-            H3Conv(
-                d_model=self.d_model,
-                l_max=self.max_len,
-                head_dim=self.head_dim,
-                use_fast_fftconv=self.use_fast_fftconv,
-                dropout=self.dropout,
-                layer_idx=i,
-            )
-            for i in range(self.n_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                H3Conv(
+                    d_model=self.d_model,
+                    l_max=self.max_len,
+                    head_dim=self.head_dim,
+                    use_fast_fftconv=self.use_fast_fftconv,
+                    dropout=self.dropout,
+                    layer_idx=i,
+                )
+                for i in range(self.n_layers)
+            ]
+        )
 
         # dropout and output
         self.norm = nn.LayerNorm(self.d_model)
@@ -347,7 +366,9 @@ class H3ConvModel(nn.Module):
 
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
 
-        finished = torch.zeros(n_sequences, dtype=torch.bool, device=self.device)
+        finished = torch.zeros(
+            n_sequences, dtype=torch.bool, device=self.device
+        )
         log_probs = torch.zeros(n_sequences, device=self.device)
         sequences = []
 
@@ -376,12 +397,21 @@ class H3ConvModel(nn.Module):
                 if finished.all():
                     break
 
-        seqs = torch.cat(sequences, 1) if sequences else torch.full(
-            (n_sequences, 1), start_token, dtype=torch.long, device=self.device
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.full(
+                (n_sequences, 1),
+                start_token,
+                dtype=torch.long,
+                device=self.device,
+            )
         )
 
         if return_smiles:
-            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            outputs = [
+                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
+            ]
         else:
             outputs = sequences
 
@@ -407,7 +437,9 @@ class HyenaModel(nn.Module):
         super(HyenaModel, self).__init__()
 
         # detect device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # vocabulary
         self.vocabulary = vocabulary
@@ -431,18 +463,20 @@ class HyenaModel(nn.Module):
         )
 
         # Hyena layers
-        self.layers = nn.ModuleList([
-            HyenaOperator(
-                d_model=self.d_model,
-                l_max=self.max_len,
-                order=self.order,
-                filter_order=self.filter_order,
-                num_heads=self.num_heads,
-                inner_factor=self.inner_factor,
-                dropout=self.dropout,
-            )
-            for i in range(self.n_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                HyenaOperator(
+                    d_model=self.d_model,
+                    l_max=self.max_len,
+                    order=self.order,
+                    filter_order=self.filter_order,
+                    num_heads=self.num_heads,
+                    inner_factor=self.inner_factor,
+                    dropout=self.dropout,
+                )
+                for i in range(self.n_layers)
+            ]
+        )
 
         # dropout and output
         self.norm = nn.LayerNorm(self.d_model)
@@ -530,7 +564,9 @@ class HyenaModel(nn.Module):
 
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
 
-        finished = torch.zeros(n_sequences, dtype=torch.bool, device=self.device)
+        finished = torch.zeros(
+            n_sequences, dtype=torch.bool, device=self.device
+        )
         log_probs = torch.zeros(n_sequences, device=self.device)
         sequences = []
 
@@ -560,12 +596,21 @@ class HyenaModel(nn.Module):
                 if finished.all():
                     break
 
-        seqs = torch.cat(sequences, 1) if sequences else torch.full(
-            (n_sequences, 1), start_token, dtype=torch.long, device=self.device
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.full(
+                (n_sequences, 1),
+                start_token,
+                dtype=torch.long,
+                device=self.device,
+            )
         )
 
         if return_smiles:
-            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+            outputs = [
+                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
+            ]
         else:
             outputs = sequences
 

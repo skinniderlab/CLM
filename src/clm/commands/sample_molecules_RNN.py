@@ -11,8 +11,8 @@ from clm.models import (
     ConditionalRNN,
     Transformer,
     StructuredStateSpaceSequenceModel,
-    H3Model, 
-    H3ConvModel, 
+    H3Model,
+    H3ConvModel,
     HyenaModel,
 )
 from clm.functions import load_dataset, write_to_csv_file
@@ -60,11 +60,11 @@ def add_args(parser):
         "--bias", type=bool, help="Use bias in Transformer model"
     )
     parser.add_argument(
-        "--use_fast_fftconv", type=bool, help="Use fast FFT convolution for H3 or H3Conv model"
+        "--use_fast_fftconv",
+        type=bool,
+        help="Use fast FFT convolution for H3 or H3Conv model",
     )
-    parser.add_argument(
-        "--order", type=int, help="Order for Hyena model"
-    )
+    parser.add_argument("--order", type=int, help="Order for Hyena model")
     parser.add_argument(
         "--filter_order", type=int, help="Filter order for Hyena model"
     )
