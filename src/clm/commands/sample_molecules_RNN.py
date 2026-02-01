@@ -57,11 +57,11 @@ def add_args(parser):
         "--exp_factor", type=int, help="Expansion factor for Transformer model"
     )
     parser.add_argument(
-        "--bias", type=bool, help="Use bias in Transformer model"
+        "--bias", action="store_true", help="Use bias in Transformer model"
     )
     parser.add_argument(
         "--use_fast_fftconv",
-        type=bool,
+        action="store_true",
         help="Use fast FFT convolution for H3 or H3Conv model",
     )
     parser.add_argument("--order", type=int, help="Order for Hyena model")

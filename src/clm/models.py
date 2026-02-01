@@ -25,11 +25,6 @@ class H3Model(nn.Module):
     ):
         super(H3Model, self).__init__()
 
-        if H3 is None:
-            raise ImportError(
-                "H3 modules not found. Make sure src.models.sequence.h3 is available."
-            )
-
         # detect device
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -87,7 +82,7 @@ class H3Model(nn.Module):
 
     def forward(self, x, inference_params=None):
 
-        batch_size, seq_len = x.size()
+        # batch_size, seq_len = x.size()
 
         # Embed the input
         x = self.embedding(x)  # (batch_size, seq_len, d_model)
@@ -238,11 +233,6 @@ class H3ConvModel(nn.Module):
     ):
         super(H3ConvModel, self).__init__()
 
-        if H3Conv is None:
-            raise ImportError(
-                "H3Conv modules not found. Make sure src.models.sequence.h3_conv is available."
-            )
-
         # detect device
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -297,7 +287,7 @@ class H3ConvModel(nn.Module):
             self.cuda()
 
     def forward(self, x, inference_params=None):
-        batch_size, seq_len = x.size()
+        # batch_size, seq_len = x.size()
 
         # Embed the input
         x = self.embedding(x)  # (batch_size, seq_len, d_model)
@@ -493,7 +483,7 @@ class HyenaModel(nn.Module):
             self.cuda()
 
     def forward(self, x):
-        batch_size, seq_len = x.size()
+        # batch_size, seq_len = x.size()
 
         # Embed the input
         x = self.embedding(x)  # (batch_size, seq_len, d_model)

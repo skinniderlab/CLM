@@ -62,7 +62,7 @@ model_params:
   exp_factor: 4 # Expansion factor for Transformer model. Applicable if model_type is 'Transformer'.
   bias: true # Whether to include bias terms in the model's layers. Applicable if model_type is 'Transformer'.
   use_fast_fftconv: false # Whether to use fast FFT convolution for H3 or H3Conv model. Applicable if model_type is 'H3' or 'H3Conv'.
-  order: 2 # Order of the convolution for H3Conv model. Applicable if model_type is 'Hyena'.
+  order: 2 # Order of the convolution for Hyena model. Applicable if model_type is 'Hyena'.
   filter_order: 64 # Filter order for Hyena model. Applicable if model_type is 'Hyena'.
   inner_factor: 1 # Inner factor for Hyena model. Applicable if model_type is 'Hyena'.
   dropout: 0 # Dropout rate applied to the RNN layer for regularization.
