@@ -1,7 +1,5 @@
 from pathlib import Path
 import pandas as pd
-import torch
-import gc
 
 from clm.commands import (
     preprocess,
@@ -23,17 +21,6 @@ base_dir = Path(__file__).parent.parent
 test_dir = base_dir / "tests/test_data/snakemake_output"
 dataset = base_dir / "tests/test_data/LOTUS_truncated.txt"
 pubchem_tsv_file = base_dir / "tests/test_data/PubChem_truncated.tsv"
-
-
-@pytest.fixture(autouse=True, scope="function")
-def cleanup_torch():
-    """Clean up torch state between tests."""
-    yield
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
-    gc.collect()
-    torch.manual_seed(42)
 
 
 @pytest.mark.parametrize(
@@ -317,10 +304,10 @@ def test_02_train_models_H3(tmp_path):
         representation="SMILES",
         model_type="H3",
         rnn_type="H3",
-        embedding_size=64,
-        hidden_size=128,
+        embedding_size=32,
+        hidden_size=256,
         n_layers=2,
-        state_dim=8,
+        state_dim=64,
         n_ssm=2,
         n_heads=2,
         exp_factor=4,
@@ -354,10 +341,10 @@ def test_02_train_models_H3Conv(tmp_path):
         representation="SMILES",
         model_type="H3Conv",
         rnn_type="H3Conv",
-        embedding_size=64,
-        hidden_size=128,
+        embedding_size=32,
+        hidden_size=256,
         n_layers=2,
-        state_dim=8,
+        state_dim=64,
         n_ssm=2,
         n_heads=2,
         exp_factor=4,
@@ -391,10 +378,10 @@ def test_02_train_models_Hyena(tmp_path):
         representation="SMILES",
         model_type="Hyena",
         rnn_type="Hyena",
-        embedding_size=64,
-        hidden_size=128,
+        embedding_size=32,
+        hidden_size=256,
         n_layers=2,
-        state_dim=8,
+        state_dim=64,
         n_ssm=2,
         n_heads=2,
         exp_factor=4,
