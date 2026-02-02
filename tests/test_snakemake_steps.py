@@ -1,5 +1,7 @@
 from pathlib import Path
 import pandas as pd
+import torch
+import gc
 
 from clm.commands import (
     preprocess,
@@ -22,8 +24,6 @@ test_dir = base_dir / "tests/test_data/snakemake_output"
 dataset = base_dir / "tests/test_data/LOTUS_truncated.txt"
 pubchem_tsv_file = base_dir / "tests/test_data/PubChem_truncated.tsv"
 
-import torch
-import gc
 
 @pytest.fixture(autouse=True, scope="function")
 def cleanup_torch():
@@ -34,6 +34,7 @@ def cleanup_torch():
         torch.cuda.synchronize()
     gc.collect()
     torch.manual_seed(42)
+
 
 @pytest.mark.parametrize(
     (
