@@ -25,3 +25,6 @@ src/clm/_version.py
 
 # Snakemake logs
 .snakemake
+
+# clm input
+workflow/clm-input/
