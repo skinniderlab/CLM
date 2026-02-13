@@ -6,7 +6,7 @@ representations:
 
 # The number of cross-validation folds.
 # The dataset is split into train/test set for each fold, and models are trained/tested on each fold.
-folds: 10
+folds: 5
 
 # Seeds used to initialize random number generators for the training runs.
 # Each seed corresponds to a separate training run.
@@ -38,9 +38,9 @@ sample_seeds:
 # than those provided in the original dataset.
 enum_factors:
   - 0
-  - 1
   - 2
-  - 4
+  - 8
+  - 32
 
   # - 0
   # - 4
@@ -69,15 +69,20 @@ preprocess:
 model_params:
   # Type of Recurrent Neural Network (RNN) to use.
   # Available options are 'LSTM' and 'GRU'
+  model_type: RNN
   rnn_type: LSTM
   embedding_size: 128 # Size of the embedding vectors that represent each token in the input sequence.
   hidden_size: 1024 # Size of the hidden state of the RNN.
+  state_dim: 64 # State dimension for S4 model. Applicable if model_type is 'S4'.
+  n_ssm: 1 # Number of SSM layers for S4 model. Applicable if model_type is 'S4'.
+  n_heads: 4 # Number of attention heads for the model. Applicable if model_type is 'Transformer'.
+  exp_factor: 4 # Expansion factor for Transformer model. Applicable if model_type is 'Transformer'.
   n_layers: 3 # Number of stacked RNN layers in the model.
   dropout: 0 # Dropout rate applied to the RNN layer for regularization.
   batch_size: 64 # Number of samples processed before the models internal parameters are updated.
   learning_rate: 0.001 # Used by the optimizer to update model parameters.
-  max_epochs: 100 # 999999 # Maximum number of training epochs (complete passes through the training dataset).
-  patience: 50000 # Number of steps with no improvement in the validation loss after which early stopping is triggered.
+  max_epochs: 999999 # 999999 # Maximum number of training epochs (complete passes through the training dataset).
+  patience: 10000 # Number of steps with no improvement in the validation loss after which early stopping is triggered.
 
   # An RNN model conditioned on input descriptors (experimentally obtained properties of the input SMILES).
   # Note that rnn_type and other RNN architecture parameters are still applicable in this case.
