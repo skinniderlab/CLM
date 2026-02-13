@@ -28,3 +28,6 @@ src/clm/_version.py
 
 # clm input
 workflow/clm-input/
+
+# logs
+logs/
