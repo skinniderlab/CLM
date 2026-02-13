@@ -44,12 +44,27 @@ wildcard_constraints:
 #         tc_file_overall = expand(config['paths']['overall_tc_file'],
 #             output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS,dataset=DATASET,repr=REPRESENTATIONS,min_freq=MIN_FREQS,metric=METRICS)
 
+# debug: print rule all targets
+TARGETS = expand(
+            PATHS['tabulate_molecules_output'],
+            output_dir=OUTPUT_DIR,
+            enum_factor=ENUM_FACTORS,
+            dataset=DATASET,
+            repr=REPRESENTATIONS_NO_SELFIES,
+            fold=range(FOLDS),
+            train_seed=TRAIN_SEEDS,
+            sample_seed=SAMPLE_SEEDS
+        )
+
+print("\n[DEBUG] rule all targets:")
+for t in TARGETS:
+    print("  ", t)
+print(f"[DEBUG] total targets: {len(TARGETS)}\n")
+
 
 rule all:
     input:
-        expand(PATHS['process_tabulated_output'], output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, min_freq=MIN_FREQS, metric=METRICS)
-    	# expand(PATHS['train_all_file'], output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES)
-	    # expand(PATHS['test_all_file'], output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES)
+        TARGETS
 
 rule preprocess:
     """
