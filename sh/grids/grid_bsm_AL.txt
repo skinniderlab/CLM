@@ -1,0 +1,9 @@
+paths.dataset=workflow/clm-input/bsm-2m-AL-step0-gt_0_5.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step0-gt_0_5
+paths.dataset=workflow/clm-input/bsm-2m-AL-step0-gt_0_8.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step0-gt_0_8
+paths.dataset=workflow/clm-input/bsm-2m-AL-step0-gt_0_99.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step0-gt_0_99
+paths.dataset=workflow/clm-input/bsm-2m-AL-step2-gt_0_5.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step2-gt_0_5
+paths.dataset=workflow/clm-input/bsm-2m-AL-step2-gt_0_8.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step2-gt_0_8
+paths.dataset=workflow/clm-input/bsm-2m-AL-step2-gt_0_99.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step2-gt_0_99
+paths.dataset=workflow/clm-input/bsm-2m-AL-step7-gt_0_5.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step7-gt_0_5
+paths.dataset=workflow/clm-input/bsm-2m-AL-step7-gt_0_8.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step7-gt_0_8
+paths.dataset=workflow/clm-input/bsm-2m-AL-step7-gt_0_99.csv paths.output_dir=/scratch/tmp/sa7998/clm/AL-v0/bsm-2m-AL-step7-gt_0_99
