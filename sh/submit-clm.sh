@@ -1,3 +1,12 @@
+conda activate clm
+snakemake --snakefile workflow/Snakefile --configfile workflow/config/config_bsm.yaml --dry-run
+
+snakemake all --snakefile workflow/Snakefile --configfile workflow/config/config_bsm.yaml --slurm --default-resources slurm_partition=main,skinniderlab --latency-wait=60 --rerun-incomplete -n -r --jobs 100 --dry-run
+
+# MAS command
+ 
+
+
 
 
 conda activate clm
