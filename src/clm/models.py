@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from safari.models.sequence.h3 import H3
+
 # from safari.models.sequence.h3_conv import H3Conv
 from safari.models.sequence.hyena_components import HyenaOperator
 
