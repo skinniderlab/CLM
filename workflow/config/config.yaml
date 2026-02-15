@@ -77,7 +77,7 @@ model_params:
   filter_order: 64 # Filter order for Hyena model. Applicable if model_type is 'Hyena'.
   measure: "diag-lin" # Measure for H3 layers. Applicable if model_type is 'H3'.
   mode: "diag" # Mode for H3 layers. Applicable if model_type is 'H3'.
-  lr: null # Learning rate for the H3 mlayers. Applicable if model_type is 'H3'.
+  lr: 0.001 # Learning rate for the H3 mlayers. Applicable if model_type is 'H3'.
   dropout: 0 # Dropout rate applied to the RNN layer for regularization.
   batch_size: 64 # Number of samples processed before the models internal parameters are updated.
   learning_rate: 0.001 # Used by the optimizer to update model parameters.
