@@ -12,7 +12,6 @@ from clm.models import (
     Transformer,
     StructuredStateSpaceSequenceModel,
     H3Model,
-    # H3ConvModel,
     HyenaModel,
 )
 from clm.functions import load_dataset, write_to_csv_file
@@ -222,24 +221,6 @@ def sample_molecules_RNN(
             mode=mode,
             lr=lr,
         )
-
-    # elif model_type == "H3Conv":
-    #     assert (
-    #         heldout_file is not None
-    #     ), "heldout_file must be provided for conditional RNN Model"
-    #     heldout_dataset = load_dataset(
-    #         representation=representation,
-    #         input_file=heldout_file,
-    #         vocab_file=vocab_file,
-    #     )
-    #     model = H3ConvModel(
-    #         vocabulary=vocab,
-    #         n_layers=n_layers,
-    #         model_dim=embedding_size,
-    #         head_dim=n_heads,
-    #         dropout=dropout,
-    #         use_fast_fftconv=use_fast_fftconv,
-    #     )
 
     elif model_type == "Hyena":
         assert (

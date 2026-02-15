@@ -344,45 +344,6 @@ def test_02_train_models_H3(tmp_path):
     # so we simply ensure that this step runs without errors.
 
 
-# def test_02_train_models_H3Conv(tmp_path):
-#     train_models_RNN.train_models_RNN(
-#         representation="SMILES",
-#         model_type="H3Conv",
-#         rnn_type="H3Conv",
-#         embedding_size=32,
-#         hidden_size=256,
-#         n_layers=2,
-#         state_dim=64,
-#         n_ssm=4,
-#         n_heads=4,
-#         exp_factor=4,
-#         bias=True,
-#         use_fast_fftconv=False,
-#         order=2,
-#         filter_order=64,
-#         measure="diag-lin",
-#         mode="diag",
-#         lr=0.0,
-#         dropout=0,
-#         batch_size=64,
-#         learning_rate=0.001,
-#         max_epochs=3,
-#         patience=5000,
-#         log_every_steps=100,
-#         log_every_epochs=1,
-#         sample_mols=100,
-#         input_file=test_dir
-#         / "0/prior/inputs/train_LOTUS_truncated_SMILES_0.smi",
-#         vocab_file=test_dir
-#         / "0/prior/inputs/train_LOTUS_truncated_SMILES_0.vocabulary",
-#         model_file=tmp_path / "LOTUS_truncated_SMILES_0_0_model_H3Conv.pt",
-#         loss_file=tmp_path / "LOTUS_truncated_SMILES_0_0_loss.csv",
-#         smiles_file=None,
-#     )
-#     # Model loss values can vary between platforms and architectures,
-#     # so we simply ensure that this step runs without errors.
-
-
 def test_02_train_models_Hyena(tmp_path):
     train_models_RNN.train_models_RNN(
         representation="SMILES",

@@ -12,7 +12,6 @@ from clm.models import (
     Transformer,
     StructuredStateSpaceSequenceModel,
     H3Model,
-    # H3ConvModel,
     HyenaModel,
 )
 from clm.loggers import EarlyStopping, track_loss, print_update
@@ -266,16 +265,6 @@ def train_models_RNN(
             mode=mode,
             lr=lr,
         )
-
-    # elif model_type == "H3Conv":
-    #     model = H3ConvModel(
-    #         vocabulary=dataset.vocabulary,
-    #         n_layers=n_layers,
-    #         model_dim=embedding_size,
-    #         head_dim=n_heads,
-    #         dropout=dropout,
-    #         use_fast_fftconv=use_fast_fftconv,
-    #     )
 
     elif model_type == "Hyena":
         model = HyenaModel(
