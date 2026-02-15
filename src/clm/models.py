@@ -82,7 +82,7 @@ class H3Model(nn.Module):
                     layer_idx=i,
                     mode=self.mode,  # Use S4D variant
                     measure=self.measure,
-                    lr=lr,
+                    lr=None if lr == 0.0 else lr,
                     **kernel_args,
                 )
                 for i in range(n_layers)
