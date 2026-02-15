@@ -68,18 +68,18 @@ def add_args(parser):
     parser.add_argument(
         "--use_fast_fftconv",
         action="store_true",
-        help="Use fast FFT convolution for H3 or H3Conv model",
+        help="Use fast FFT convolution for H3 model",
     )
     parser.add_argument(
         "--measure",
         type=str,
-        help="Measure parameter for the H3 or H3Conv model",
+        help="Measure parameter for the H3 model",
     )
     parser.add_argument(
-        "--mode", type=str, help="Mode parameter for the H3 or H3Conv model"
+        "--mode", type=str, help="Mode parameter for the H3 model"
     )
     parser.add_argument(
-        "--lr", type=float, help="Learning rate for the H3 or H3Conv model"
+        "--lr", type=float, help="Learning rate for the H3 model"
     )
     parser.add_argument("--order", type=int, help="Order for Hyena model")
     parser.add_argument(
