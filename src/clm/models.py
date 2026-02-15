@@ -4,9 +4,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+from safari.models.sequence.ssm.ss_kernel import SSKernel
+from safari.models.sequence.long_conv_kernel import LongConvKernel
+
 from safari.models.sequence.h3 import H3
 from safari.models.sequence.h3_conv import H3Conv
 from safari.models.sequence.hyena_components import HyenaOperator
+
+try:
+    from safari.ops.fftconv import fftconv_func
+    HAS_FFTCONV = True
+except ImportError:
+    print("Warning: fftconv CUDA extension not available, using reference implementation")
+    HAS_FFTCONV = False
+    fftconv_func = None
 
 from s4dd.module_library.sequence_model import SequenceModel
 
@@ -16,116 +27,135 @@ class H3Model(nn.Module):
         self,
         vocabulary,
         n_layers=4,
-        d_model=256,
-        d_state=64,
+        model_dim=256,
+        state_dim=64,
         head_dim=1,
         dropout=0.1,
         max_len=250,
         use_fast_fftconv=False,
+        # SSM kernel parameters
+        measure="diag-lin",
+        mode='diag',
+        lr=None,
+        **kernel_args,
     ):
         super(H3Model, self).__init__()
-
-        # detect device
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        # vocabulary
+        
+        # Device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Vocabulary
         self.vocabulary = vocabulary
         self.vocabulary_size = len(self.vocabulary)
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
-
-        # hyperparams
+        
+        # Hyperparameters
+        self.model_dim = model_dim
+        self.state_dim = state_dim
         self.n_layers = n_layers
-        self.d_model = d_model
-        self.d_state = d_state
         self.head_dim = head_dim
         self.dropout = dropout
         self.max_len = max_len
-        self.use_fast_fftconv = use_fast_fftconv
-
-        # model components
+        self.use_fast_fftconv = use_fast_fftconv and HAS_FFTCONV
+        self.measure = measure
+        self.mode = mode
+        
+        # Model components
+        padding_t = torch.tensor(self.padding_idx).to(self.device)
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.d_model, padding_idx=padding_t
+            self.vocabulary_size, self.model_dim, padding_idx=padding_t
         )
-
-        # H3 layers
-        self.layers = nn.ModuleList(
-            [
-                H3(
-                    d_model=self.d_model,
-                    d_state=self.d_state,
-                    l_max=self.max_len,
-                    head_dim=self.head_dim,
-                    use_fast_fftconv=self.use_fast_fftconv,
-                    dropout=self.dropout,
-                    layer_idx=i,
-                )
-                for i in range(self.n_layers)
-            ]
-        )
-
-        # dropout and output
-        self.norm = nn.LayerNorm(self.d_model)
+        
+        # Stack of H3 layers using actual Safari implementation
+        self.h3_layers = nn.ModuleList([
+            H3(
+                d_model=self.model_dim,
+                d_state=self.state_dim,
+                l_max=max_len,
+                head_dim=self.head_dim,
+                use_fast_fftconv=self.use_fast_fftconv,
+                dropout=self.dropout,
+                layer_idx=i,
+                mode=self.mode,  # Use S4D variant
+                measure=self.measure,
+                lr=lr,
+                **kernel_args,
+            )
+            for i in range(n_layers)
+        ])
+        
+        # Layer norm for each layer
+        self.layer_norms = nn.ModuleList([
+            nn.LayerNorm(self.model_dim) for _ in range(n_layers)
+        ])
+        
+        # Dropout
         self.dropout_layer = nn.Dropout(dropout)
-        self.output_projection = nn.Linear(self.d_model, self.vocabulary_size)
-
-        # loss function (ignoring padding)
+        
+        # Output projection
+        self.output_embedding = nn.Linear(self.model_dim, self.vocabulary_size)
+        
+        # Loss function
         self.loss_fn = nn.CrossEntropyLoss(
             ignore_index=self.padding_idx, reduction="none"
         )
-
-        # move to GPU
+        
+        # Move to GPU
         if torch.cuda.is_available():
             self.cuda()
-
-    def forward(self, x, inference_params=None):
-
-        # batch_size, seq_len = x.size()
-
-        # Embed the input
-        x = self.embedding(x)  # (batch_size, seq_len, d_model)
-
-        # Pass through H3 layers
-        for layer in self.layers:
-            x = layer(x, inference_params=inference_params)
-            if self.dropout > 0:
-                x = self.dropout_layer(x)
-
-        # Normalize and project to vocabulary
-        x = self.norm(x)
-        logits = self.output_projection(x)  # (batch_size, seq_len, vocab_size)
-
+    
+    def forward(self, x):
+        """
+        x: (batch_size, seq_len)
+        Returns: (batch_size, seq_len, vocab_size)
+        """
+        batch_size, seq_len = x.size()
+        
+        # Embed
+        x = self.embedding(x)  # (batch_size, seq_len, model_dim)
+        
+        # Apply H3 layers with residual connections
+        for h3_layer, layer_norm in zip(self.h3_layers, self.layer_norms):
+            residual = x
+            x = layer_norm(x)
+            x = h3_layer(x)  # H3 expects (B, L, H)
+            x = self.dropout_layer(x)
+            x = x + residual
+        
+        # Project to vocabulary
+        logits = self.output_embedding(x)  # (batch_size, seq_len, vocab_size)
+        
         return logits
-
+    
     def loss(self, batch):
+        """Compute loss for a batch."""
         if len(batch) == 3:
             padded, lengths, _ = batch
         else:
             padded, lengths = batch
-
+        
         padded = padded.to(self.device)
-
-        # Handle different input formats
+        
+        # Handle input format
         if padded.dim() == 2:
             padded = padded.transpose(0, 1)
-
+        
         # Forward pass
-        logits = self(padded)
-
-        # Calculate loss
-        targets = padded[:, 1:]
-        logits = logits[:, :-1, :]
-
+        logits = self(padded)  # (batch_size, seq_len, vocab_size)
+        
+        # Calculate loss (predict next token)
+        targets = padded[:, 1:]  # (batch_size, seq_len-1)
+        logits = logits[:, :-1, :]  # (batch_size, seq_len-1, vocab_size)
+        
+        # Compute loss
         loss = 0.0
         actual_len = min(logits.shape[1], targets.shape[1])
-
+        
         for char_idx in range(actual_len):
             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-
+        
         return loss.mean()
-
+    
     def sample(
         self,
         *,
@@ -135,202 +165,218 @@ class H3Model(nn.Module):
         return_losses=False,
         descriptors=None,
     ):
+        """Sample sequences from the model."""
         if max_len is None:
             max_len = self.max_len
-
+        
         self.eval()
-
-        # Get start/stop tokens
+        
+        # Get tokens
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
         pad_token = self.vocabulary.dictionary["<PAD>"]
-
-        # Create inference params
-        class InferenceParams:
-            def __init__(self, max_seqlen, batch_size):
-                self.max_seqlen = max_seqlen
-                self.max_batch_size = batch_size
-                self.sequence_len_offset = 0
-                self.key_value_memory_dict = {}
-
-        inference_params = InferenceParams(max_len, n_sequences)
-
-        # Initialize with start tokens - keep only current token for recurrent stepping
-        current_token = torch.full(
-            (n_sequences, 1), start_token, dtype=torch.long, device=self.device
-        )
-
+        
+        # Initialize
+        inputs = torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+        
+        # Loss function
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-
-        finished = torch.zeros(
-            n_sequences, dtype=torch.bool, device=self.device
-        )
-        log_probs = torch.zeros(n_sequences, device=self.device)
+        
+        # Sampling loop
+        finished = torch.zeros(n_sequences).byte().to(self.device)
+        log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-
+        
         with torch.no_grad():
             for step in range(max_len):
-                # Process only the current token in recurrent mode
-                logits = self(current_token, inference_params=inference_params)
-                logits = logits[:, -1, :]  # Get last (and only) position
-
+                # Get logits for all sequences so far
+                if step == 0:
+                    current_seq = inputs.unsqueeze(1)  # (n_sequences, 1)
+                else:
+                    # Build full sequence so far
+                    seq_list = [inputs.unsqueeze(1)] + sequences
+                    current_seq = torch.cat(seq_list, dim=1)  # (n_sequences, step+1)
+                
+                # Forward pass
+                logits = self(current_seq)  # (n_sequences, step+1, vocab_size)
+                logits = logits[:, -1, :]  # Get last position (n_sequences, vocab_size)
+                
+                # Clamp and sample
                 logits = torch.clamp(logits, min=-1e4, max=1e4)
                 prob = F.softmax(logits, dim=-1)
-
+                
                 if torch.isnan(prob).any() or torch.isinf(prob).any():
                     break
-
-                outputs = torch.multinomial(prob, num_samples=1)
-                sequences.append(outputs)
-
+                
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+                
+                # Calculate NLL
                 log_prob = F.log_softmax(logits, dim=-1)
-                losses = loss_fn(log_prob, outputs.squeeze(1))
-                losses[finished] = 0
+                losses = loss_fn(log_prob, outputs)
+                
+                # Zero losses if finished
+                losses[finished.bool()] = 0
                 log_probs += losses
-
-                # Update current token for next step (don't accumulate)
-                current_token = outputs
-                inference_params.sequence_len_offset += 1
-
-                finished = finished | (outputs.squeeze(1) == stop_token)
-                if finished.all():
+                
+                # Check if finished
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+                if torch.prod(finished) == 1:
                     break
-
-        seqs = (
-            torch.cat(sequences, 1)
-            if sequences
-            else torch.full(
-                (n_sequences, 1),
-                start_token,
-                dtype=torch.long,
-                device=self.device,
-            )
-        )
-
+        
+        # Concatenate and decode
+        seqs = torch.cat(sequences, 1)
         if return_smiles:
-            outputs = [
-                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
-            ]
+            smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
-            outputs = sequences
-
+            smiles = sequences
+        
         if return_losses:
-            return outputs, log_probs.detach().cpu().numpy()
+            return smiles, log_probs.detach().cpu().numpy()
         else:
-            return outputs
+            return smiles
 
 
 class H3ConvModel(nn.Module):
+    """
+    H3ConvModel - matches H3Model interface exactly.
+    
+    Only difference: Uses H3Conv (with learned convolution kernels)
+    instead of H3 (with SSM kernels).
+    """
+    
     def __init__(
         self,
         vocabulary,
         n_layers=4,
-        d_model=256,
+        model_dim=256,
         head_dim=1,
         dropout=0.1,
         max_len=250,
         use_fast_fftconv=False,
+        # Long convolution kernel parameters
+        lam=0.001,
+        kernel_dropout=0.0,
+        kernel_init='geometric',
+        smooth_kernel=False,
     ):
         super(H3ConvModel, self).__init__()
-
-        # detect device
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        # vocabulary
+        
+        # Device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Vocabulary
         self.vocabulary = vocabulary
         self.vocabulary_size = len(self.vocabulary)
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
-
-        # hyperparams
+        
+        # Hyperparameters
+        self.model_dim = model_dim
         self.n_layers = n_layers
-        self.d_model = d_model
         self.head_dim = head_dim
         self.dropout = dropout
         self.max_len = max_len
-        self.use_fast_fftconv = use_fast_fftconv
-
-        # model components
+        self.use_fast_fftconv = use_fast_fftconv and HAS_FFTCONV
+        
+        # Model components
+        padding_t = torch.tensor(self.padding_idx).to(self.device)
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.d_model, padding_idx=padding_t
+            self.vocabulary_size, self.model_dim, padding_idx=padding_t
         )
-
-        # H3Conv layers
-        self.layers = nn.ModuleList(
-            [
-                H3Conv(
-                    d_model=self.d_model,
-                    l_max=self.max_len,
-                    head_dim=self.head_dim,
-                    use_fast_fftconv=self.use_fast_fftconv,
-                    dropout=self.dropout,
-                    layer_idx=i,
-                )
-                for i in range(self.n_layers)
-            ]
-        )
-
-        # dropout and output
-        self.norm = nn.LayerNorm(self.d_model)
+        
+        # Stack of H3Conv layers (using learned convolution kernels)
+        self.h3_layers = nn.ModuleList([
+            H3Conv(
+                d_model=self.model_dim,
+                l_max=max_len,
+                head_dim=self.head_dim,
+                use_fast_fftconv=self.use_fast_fftconv,
+                dropout=self.dropout,
+                layer_idx=i,
+                lam=lam,
+                kernel_dropout=kernel_dropout,
+                kernel_init=kernel_init,
+                smooth_kernel=smooth_kernel,
+            )
+            for i in range(n_layers)
+        ])
+        
+        # Layer norm for each layer
+        self.layer_norms = nn.ModuleList([
+            nn.LayerNorm(self.model_dim) for _ in range(n_layers)
+        ])
+        
+        # Dropout
         self.dropout_layer = nn.Dropout(dropout)
-        self.output_projection = nn.Linear(self.d_model, self.vocabulary_size)
-
-        # loss function (ignoring padding)
+        
+        # Output projection
+        self.output_embedding = nn.Linear(self.model_dim, self.vocabulary_size)
+        
+        # Loss function
         self.loss_fn = nn.CrossEntropyLoss(
             ignore_index=self.padding_idx, reduction="none"
         )
-
-        # move to GPU
+        
+        # Move to GPU
         if torch.cuda.is_available():
             self.cuda()
-
-    def forward(self, x, inference_params=None):
-        # batch_size, seq_len = x.size()
-
-        # Embed the input
-        x = self.embedding(x)  # (batch_size, seq_len, d_model)
-
-        # Pass through H3Conv layers
-        for layer in self.layers:
-            x = layer(x, inference_params=inference_params)
-            if self.dropout > 0:
-                x = self.dropout_layer(x)
-
-        # Normalize and project to vocabulary
-        x = self.norm(x)
-        logits = self.output_projection(x)
-
+    
+    def forward(self, x):
+        """
+        x: (batch_size, seq_len)
+        Returns: (batch_size, seq_len, vocab_size)
+        """
+        batch_size, seq_len = x.size()
+        
+        # Embed
+        x = self.embedding(x)  # (batch_size, seq_len, model_dim)
+        
+        # Apply H3Conv layers with residual connections
+        for h3_layer, layer_norm in zip(self.h3_layers, self.layer_norms):
+            residual = x
+            x = layer_norm(x)
+            x = h3_layer(x)  # H3Conv expects (B, L, H)
+            x = self.dropout_layer(x)
+            x = x + residual
+        
+        # Project to vocabulary
+        logits = self.output_embedding(x)  # (batch_size, seq_len, vocab_size)
+        
         return logits
-
+    
     def loss(self, batch):
+        """
+        Compute loss for a batch.
+        
+        Exactly matches H3Model.loss() interface.
+        """
         if len(batch) == 3:
             padded, lengths, _ = batch
         else:
             padded, lengths = batch
-
+        
         padded = padded.to(self.device)
-
-        # Handle different input formats
+        
+        # Handle input format
         if padded.dim() == 2:
             padded = padded.transpose(0, 1)
-
+        
         # Forward pass
-        logits = self(padded)
-
-        # Calculate loss
-        targets = padded[:, 1:]
-        logits = logits[:, :-1, :]
-
+        logits = self(padded)  # (batch_size, seq_len, vocab_size)
+        
+        # Calculate loss (predict next token)
+        targets = padded[:, 1:]  # (batch_size, seq_len-1)
+        logits = logits[:, :-1, :]  # (batch_size, seq_len-1, vocab_size)
+        
+        # Compute loss
         loss = 0.0
         actual_len = min(logits.shape[1], targets.shape[1])
-
+        
         for char_idx in range(actual_len):
             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-
+        
         return loss.mean()
-
+    
     def sample(
         self,
         *,
@@ -340,75 +386,80 @@ class H3ConvModel(nn.Module):
         return_losses=False,
         descriptors=None,
     ):
+        """
+        Sample sequences from the model.
+        
+        Exactly matches H3Model.sample() interface.
+        """
         if max_len is None:
             max_len = self.max_len
-
+        
         self.eval()
-
+        
+        # Get tokens
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
         pad_token = self.vocabulary.dictionary["<PAD>"]
-
-        # H3Conv doesn't use stateful inference, process full sequence each time
-        inputs = torch.full(
-            (n_sequences, 1), start_token, dtype=torch.long, device=self.device
-        )
-
+        
+        # Initialize
+        inputs = torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+        
+        # Loss function
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-
-        finished = torch.zeros(
-            n_sequences, dtype=torch.bool, device=self.device
-        )
-        log_probs = torch.zeros(n_sequences, device=self.device)
+        
+        # Sampling loop
+        finished = torch.zeros(n_sequences).byte().to(self.device)
+        log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-
+        
         with torch.no_grad():
             for step in range(max_len):
-                logits = self(inputs)
-                logits = logits[:, -1, :]
-
+                # Get logits for all sequences so far
+                if step == 0:
+                    current_seq = inputs.unsqueeze(1)  # (n_sequences, 1)
+                else:
+                    # Build full sequence so far
+                    seq_list = [inputs.unsqueeze(1)] + sequences
+                    current_seq = torch.cat(seq_list, dim=1)  # (n_sequences, step+1)
+                
+                # Forward pass
+                logits = self(current_seq)  # (n_sequences, step+1, vocab_size)
+                logits = logits[:, -1, :]  # Get last position (n_sequences, vocab_size)
+                
+                # Clamp and sample
                 logits = torch.clamp(logits, min=-1e4, max=1e4)
                 prob = F.softmax(logits, dim=-1)
-
+                
                 if torch.isnan(prob).any() or torch.isinf(prob).any():
                     break
-
-                outputs = torch.multinomial(prob, num_samples=1)
-                sequences.append(outputs)
-
+                
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+                
+                # Calculate NLL
                 log_prob = F.log_softmax(logits, dim=-1)
-                losses = loss_fn(log_prob, outputs.squeeze(1))
-                losses[finished] = 0
+                losses = loss_fn(log_prob, outputs)
+                
+                # Zero losses if finished
+                losses[finished.bool()] = 0
                 log_probs += losses
-
-                inputs = torch.cat([inputs, outputs], dim=1)
-
-                finished = finished | (outputs.squeeze(1) == stop_token)
-                if finished.all():
+                
+                # Check if finished
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+                if torch.prod(finished) == 1:
                     break
-
-        seqs = (
-            torch.cat(sequences, 1)
-            if sequences
-            else torch.full(
-                (n_sequences, 1),
-                start_token,
-                dtype=torch.long,
-                device=self.device,
-            )
-        )
-
+        
+        # Concatenate and decode
+        seqs = torch.cat(sequences, 1)
         if return_smiles:
-            outputs = [
-                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
-            ]
+            smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
-            outputs = sequences
-
+            smiles = sequences
+        
         if return_losses:
-            return outputs, log_probs.detach().cpu().numpy()
+            return smiles, log_probs.detach().cpu().numpy()
         else:
-            return outputs
+            return smiles
 
 
 class HyenaModel(nn.Module):
@@ -420,115 +471,84 @@ class HyenaModel(nn.Module):
         order=2,
         filter_order=64,
         num_heads=1,
-        dropout=0.1,
+        dropout=0.25,
         max_len=250,
-        inner_factor=1,
+        **hyena_args
     ):
         super(HyenaModel, self).__init__()
-
-        # detect device
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        # vocabulary
+        
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.vocabulary = vocabulary
-        self.vocabulary_size = len(self.vocabulary)
-        self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
-
-        # hyperparams
-        self.n_layers = n_layers
+        self.vocabulary_size = len(vocabulary)
+        self.padding_idx = vocabulary.dictionary["<PAD>"]
         self.d_model = d_model
-        self.order = order
-        self.filter_order = filter_order
-        self.num_heads = num_heads
+        self.n_layers = n_layers
         self.dropout = dropout
         self.max_len = max_len
-        self.inner_factor = inner_factor
-
-        # model components
+        
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.d_model, padding_idx=padding_t
+            self.vocabulary_size, d_model, padding_idx=self.padding_idx
         )
-
-        # Hyena layers
-        self.layers = nn.ModuleList(
-            [
-                HyenaOperator(
-                    d_model=self.d_model,
-                    l_max=self.max_len,
-                    order=self.order,
-                    filter_order=self.filter_order,
-                    num_heads=self.num_heads,
-                    inner_factor=self.inner_factor,
-                    dropout=self.dropout,
-                )
-                for i in range(self.n_layers)
-            ]
-        )
-
-        # dropout and output
-        self.norm = nn.LayerNorm(self.d_model)
+        
+        self.hyena_layers = nn.ModuleList([
+            HyenaOperator(
+                d_model=d_model,
+                l_max=max_len,
+                order=order,
+                filter_order=filter_order,
+                num_heads=num_heads,
+                dropout=dropout,
+                **hyena_args
+            )
+            for _ in range(n_layers)
+        ])
+        
+        self.layer_norms = nn.ModuleList([
+            nn.LayerNorm(d_model) for _ in range(n_layers)
+        ])
+        
         self.dropout_layer = nn.Dropout(dropout)
-        self.output_projection = nn.Linear(self.d_model, self.vocabulary_size)
-
-        # loss function (ignoring padding)
+        self.output_embedding = nn.Linear(d_model, self.vocabulary_size)
         self.loss_fn = nn.CrossEntropyLoss(
             ignore_index=self.padding_idx, reduction="none"
         )
-
-        # move to GPU
+        
         if torch.cuda.is_available():
             self.cuda()
-
+    
     def forward(self, x):
-        # batch_size, seq_len = x.size()
-
-        # Embed the input
-        x = self.embedding(x)  # (batch_size, seq_len, d_model)
-
-        # Pass through Hyena layers
-        for layer in self.layers:
+        x = self.embedding(x)
+        
+        for hyena_layer, layer_norm in zip(self.hyena_layers, self.layer_norms):
             residual = x
-            x = layer(x)
-            x = x + residual  # Residual connection
-            if self.dropout > 0:
-                x = self.dropout_layer(x)
-
-        # Normalize and project to vocabulary
-        x = self.norm(x)
-        logits = self.output_projection(x)
-
-        return logits
-
+            x = layer_norm(x)
+            x = hyena_layer(x)
+            x = self.dropout_layer(x)
+            x = x + residual
+        
+        return self.output_embedding(x)
+    
     def loss(self, batch):
         if len(batch) == 3:
             padded, lengths, _ = batch
         else:
             padded, lengths = batch
-
+        
         padded = padded.to(self.device)
-
-        # Handle different input formats
         if padded.dim() == 2:
             padded = padded.transpose(0, 1)
-
-        # Forward pass
+        
         logits = self(padded)
-
-        # Calculate loss
         targets = padded[:, 1:]
         logits = logits[:, :-1, :]
-
+        
         loss = 0.0
         actual_len = min(logits.shape[1], targets.shape[1])
-
         for char_idx in range(actual_len):
             loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
-
+        
         return loss.mean()
-
+    
     def sample(
         self,
         *,
@@ -540,70 +560,55 @@ class HyenaModel(nn.Module):
     ):
         if max_len is None:
             max_len = self.max_len
-
+        
         self.eval()
-
+        
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
         pad_token = self.vocabulary.dictionary["<PAD>"]
-
-        # Initialize with start tokens
-        inputs = torch.full(
-            (n_sequences, 1), start_token, dtype=torch.long, device=self.device
-        )
-
+        
+        inputs = torch.empty(n_sequences).fill_(start_token).long().to(self.device)
         loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
-
-        finished = torch.zeros(
-            n_sequences, dtype=torch.bool, device=self.device
-        )
-        log_probs = torch.zeros(n_sequences, device=self.device)
+        
+        finished = torch.zeros(n_sequences).byte().to(self.device)
+        log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-
+        
         with torch.no_grad():
             for step in range(max_len):
-                # Hyena processes full sequence each time (stateless)
-                logits = self(inputs)
+                if step == 0:
+                    current_seq = inputs.unsqueeze(1)
+                else:
+                    seq_list = [inputs.unsqueeze(1)] + sequences
+                    current_seq = torch.cat(seq_list, dim=1)
+                
+                logits = self(current_seq)
                 logits = logits[:, -1, :]
-
+                
                 logits = torch.clamp(logits, min=-1e4, max=1e4)
                 prob = F.softmax(logits, dim=-1)
-
+                
                 if torch.isnan(prob).any() or torch.isinf(prob).any():
                     break
-
-                outputs = torch.multinomial(prob, num_samples=1)
-                sequences.append(outputs)
-
+                
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+                
                 log_prob = F.log_softmax(logits, dim=-1)
-                losses = loss_fn(log_prob, outputs.squeeze(1))
-                losses[finished] = 0
+                losses = loss_fn(log_prob, outputs)
+                losses[finished.bool()] = 0
                 log_probs += losses
-
-                inputs = torch.cat([inputs, outputs], dim=1)
-
-                finished = finished | (outputs.squeeze(1) == stop_token)
-                if finished.all():
+                
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+                if torch.prod(finished) == 1:
                     break
-
-        seqs = (
-            torch.cat(sequences, 1)
-            if sequences
-            else torch.full(
-                (n_sequences, 1),
-                start_token,
-                dtype=torch.long,
-                device=self.device,
-            )
-        )
-
+        
+        seqs = torch.cat(sequences, 1)
         if return_smiles:
-            outputs = [
-                self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
-            ]
+            outputs = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
             outputs = sequences
-
+        
         if return_losses:
             return outputs, log_probs.detach().cpu().numpy()
         else:

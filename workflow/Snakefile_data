@@ -181,9 +181,11 @@ rule train_models_RNN:
         '--exp_factor {MODEL_PARAMS[exp_factor]} '
         f'{"--bias" if MODEL_PARAMS["bias"] else ""} '
         f'{"--use_fast_fftconv" if MODEL_PARAMS["use_fast_fftconv"] else ""} '
+        '--measure {MODEL_PARAMS[measure]} '
+        '--mode {MODEL_PARAMS[mode]} '
+        '--lr {MODEL_PARAMS[lr]} '
         '--order {MODEL_PARAMS[order]} '
         '--filter_order {MODEL_PARAMS[filter_order]} '
-        '--inner_factor {MODEL_PARAMS[inner_factor]} '
         '--dropout {MODEL_PARAMS[dropout]} '
         '--batch_size {MODEL_PARAMS[batch_size]} '
         '--learning_rate {MODEL_PARAMS[learning_rate]} '
@@ -216,7 +218,7 @@ rule sample_molecules_RNN:
         output_file = PATHS['input_file']
     resources:
         mem_mb=12000,
-        runtime=120+MODEL_PARAMS["sample_mols"]//10000,
+        runtime=1000+MODEL_PARAMS["sample_mols"]//10000,
         slurm_extra="--gres=gpu:1"
     shell:
         'clm sample_molecules_RNN '
@@ -233,9 +235,11 @@ rule sample_molecules_RNN:
         '--exp_factor {MODEL_PARAMS[exp_factor]} '
         f'{"--bias" if MODEL_PARAMS["bias"] else ""} '
         f'{"--use_fast_fftconv" if MODEL_PARAMS["use_fast_fftconv"] else ""} '
+        '--measure {MODEL_PARAMS[measure]} '
+        '--mode {MODEL_PARAMS[mode]} '
+        '--lr {MODEL_PARAMS[lr]} '
         '--order {MODEL_PARAMS[order]} '
         '--filter_order {MODEL_PARAMS[filter_order]} '
-        '--inner_factor {MODEL_PARAMS[inner_factor]} '
         '--dropout {MODEL_PARAMS[dropout]} '
         '--batch_size {MODEL_PARAMS[batch_size]} '
         '--sample_mols {MODEL_PARAMS[sample_mols]} '

@@ -64,12 +64,18 @@ def add_args(parser):
         action="store_true",
         help="Use fast FFT convolution for H3 or H3Conv model",
     )
+    parser.add_argument(
+        "--measure", type=str, help="Measure parameter for the H3 or H3Conv model"
+    )
+    parser.add_argument(
+        "--mode", type=str, help="Mode parameter for the H3 or H3Conv model"
+    )
+    parser.add_argument(
+        "--lr", type=float, help="Learning rate for the H3 or H3Conv model"
+    )
     parser.add_argument("--order", type=int, help="Order for Hyena model")
     parser.add_argument(
         "--filter_order", type=int, help="Filter order for Hyena model"
-    )
-    parser.add_argument(
-        "--inner_factor", type=int, help="Inner factor for Hyena model"
     )
     parser.add_argument(
         "--dropout", type=float, help="Dropout rate for the RNN"
@@ -145,9 +151,11 @@ def sample_molecules_RNN(
     exp_factor,
     bias,
     use_fast_fftconv,
+    measure,
+    mode,
+    lr,
     order,
     filter_order,
-    inner_factor,
     dropout,
     batch_size,
     sample_mols,
@@ -203,11 +211,14 @@ def sample_molecules_RNN(
         model = H3Model(
             vocabulary=vocab,
             n_layers=n_layers,
-            d_model=embedding_size,
-            d_state=state_dim,
+            model_dim=embedding_size,
+            state_dim=state_dim,
             head_dim=n_heads,
             dropout=dropout,
             use_fast_fftconv=use_fast_fftconv,
+            measure=measure,
+            mode=mode,
+            lr=lr,
         )
 
     elif model_type == "H3Conv":
@@ -222,7 +233,7 @@ def sample_molecules_RNN(
         model = H3ConvModel(
             vocabulary=vocab,
             n_layers=n_layers,
-            d_model=embedding_size,
+            model_dim=embedding_size,
             head_dim=n_heads,
             dropout=dropout,
             use_fast_fftconv=use_fast_fftconv,
@@ -245,7 +256,6 @@ def sample_molecules_RNN(
             filter_order=filter_order,
             num_heads=n_heads,
             dropout=dropout,
-            inner_factor=inner_factor,
         )
 
     elif model_type == "Transformer":
@@ -361,9 +371,11 @@ def main(args):
         exp_factor=args.exp_factor,
         bias=args.bias,
         use_fast_fftconv=args.use_fast_fftconv,
+        measure=args.measure,
+        mode=args.mode,
+        lr=args.lr,
         order=args.order,
         filter_order=args.filter_order,
-        inner_factor=args.inner_factor,
         dropout=args.dropout,
         batch_size=args.batch_size,
         sample_mols=args.sample_mols,
