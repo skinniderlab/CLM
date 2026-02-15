@@ -72,7 +72,9 @@ def add_args(parser):
         help="Use fast FFT convolution for H3 or H3Conv model",
     )
     parser.add_argument(
-        "--measure", type=str, help="Measure parameter for the H3 or H3Conv model"
+        "--measure",
+        type=str,
+        help="Measure parameter for the H3 or H3Conv model",
     )
     parser.add_argument(
         "--mode", type=str, help="Mode parameter for the H3 or H3Conv model"
