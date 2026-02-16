@@ -183,7 +183,9 @@ def sample_molecules_RNN(
     heldout_dataset = None
 
     if model_type in ["S4", "H3", "Hyena", "Transformer"]:
-        assert not conditional, f"Conditional mode is not implemented for {model_type} model"
+        assert (
+            not conditional
+        ), f"Conditional mode is not implemented for {model_type} model"
 
     if model_type == "S4":
         model = StructuredStateSpaceSequenceModel(
