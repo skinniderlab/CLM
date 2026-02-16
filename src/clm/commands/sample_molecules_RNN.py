@@ -182,15 +182,10 @@ def sample_molecules_RNN(
 
     heldout_dataset = None
 
+    if model_type in ["S4", "H3", "Hyena", "Transformer"]:
+        assert not conditional, f"Conditional mode is not implemented for {model_type} model"
+
     if model_type == "S4":
-        assert (
-            heldout_file is not None
-        ), "heldout_file must be provided for conditional RNN Model"
-        heldout_dataset = load_dataset(
-            representation=representation,
-            input_file=heldout_file,
-            vocab_file=vocab_file,
-        )
         model = StructuredStateSpaceSequenceModel(
             vocabulary=vocab,  # heldout_dataset.vocabulary
             model_dim=embedding_size,
@@ -201,14 +196,6 @@ def sample_molecules_RNN(
         )
 
     elif model_type == "H3":
-        assert (
-            heldout_file is not None
-        ), "heldout_file must be provided for conditional RNN Model"
-        heldout_dataset = load_dataset(
-            representation=representation,
-            input_file=heldout_file,
-            vocab_file=vocab_file,
-        )
         model = H3Model(
             vocabulary=vocab,
             n_layers=n_layers,
@@ -223,14 +210,6 @@ def sample_molecules_RNN(
         )
 
     elif model_type == "Hyena":
-        assert (
-            heldout_file is not None
-        ), "heldout_file must be provided for conditional RNN Model"
-        heldout_dataset = load_dataset(
-            representation=representation,
-            input_file=heldout_file,
-            vocab_file=vocab_file,
-        )
         model = HyenaModel(
             vocabulary=vocab,
             n_layers=n_layers,
@@ -242,14 +221,6 @@ def sample_molecules_RNN(
         )
 
     elif model_type == "Transformer":
-        assert (
-            heldout_file is not None
-        ), "heldout_file must be provided for conditional RNN Model"
-        heldout_dataset = load_dataset(
-            representation=representation,
-            input_file=heldout_file,
-            vocab_file=vocab_file,
-        )
         model = Transformer(
             vocabulary=vocab,
             n_blocks=n_layers,
