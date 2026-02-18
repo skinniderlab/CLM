@@ -5,12 +5,12 @@ LOGDIR=workflow/.snakemake/slurm_logs/rule_sample_molecules_RNN
 LOGDIR=workflow/.snakemake/slurm_logs/rule_tabulate_molecules
 LOGDIR=workflow/.snakemake/slurm_logs/rule_collect_tabulated_molecules
 
-
-qos_sacct workflow/.snakemake/slurm_logs/rule_train_models_RNN
-qos_sacct workflow/.snakemake/slurm_logs/rule_sample_molecules_RNN
-qos_sacct workflow/.snakemake/slurm_logs/rule_tabulate_molecules
-qos_sacct workflow/.snakemake/slurm_logs/rule_collect_tabulated_molecules
-qos_sacct workflow/.snakemake/slurm_logs/rule_process_tabulated_molecules
+qos_sacct .snakemake/slurm_logs/rule_create_training_sets
+qos_sacct .snakemake/slurm_logs/rule_train_models_RNN
+qos_sacct .snakemake/slurm_logs/rule_sample_molecules_RNN
+qos_sacct .snakemake/slurm_logs/rule_tabulate_molecules
+qos_sacct .snakemake/slurm_logs/rule_collect_tabulated_molecules
+qos_sacct .snakemake/slurm_logs/rule_process_tabulated_molecules
 
 jobids=$(ls $LOGDIR/*.log | sed 's#.*/##; s/\.log//' | paste -sd, -)
 
