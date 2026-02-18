@@ -8,7 +8,7 @@ import yaml
 import copy
 
 # usage:
-# python sh/write-grid.py
+# python sh/write-grid-v0.py
 
 
 # -------------------------
@@ -18,22 +18,35 @@ import copy
 BASE_CONFIG = "sh/grids/config_bsm.yaml"
 OUT_ROOT = "/scratch/tmp/sa7998/clm/AL-v0"
 
-GRID_FILE = "sh/grids/grid_bsm_AL.txt"
-CONFIG_DIR = "sh/grids/configs_bsm_AL"
+GRID_FILE = "sh/grids/clm_v0.txt"
+CONFIG_DIR = "sh/grids/clm_v0"
+
+INPUT_DIR = "/scratch/tmp/sa7998/clm-input/"
 
 PARAM_SPACE = {
 
     # paths
     "paths.dataset": [
-        "workflow/clm-input/bsm-2m-AL-step0-gt_0_5.csv",
-        "workflow/clm-input/bsm-2m-AL-step0-gt_0_8.csv",
-        "workflow/clm-input/bsm-2m-AL-step0-gt_0_99.csv",
-        "workflow/clm-input/bsm-2m-AL-step2-gt_0_5.csv",
-        "workflow/clm-input/bsm-2m-AL-step2-gt_0_8.csv",
-        "workflow/clm-input/bsm-2m-AL-step2-gt_0_99.csv",
-        "workflow/clm-input/bsm-2m-AL-step7-gt_0_5.csv",
-        "workflow/clm-input/bsm-2m-AL-step7-gt_0_8.csv",
-        "workflow/clm-input/bsm-2m-AL-step7-gt_0_99.csv",
+        f"{INPUT_DIR}/bsm-2m-AL-step0-gt_0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-AL-step0-gt_0_8.csv",
+        f"{INPUT_DIR}/bsm-2m-AL-step0-gt_0_99.csv",
+
+        f"{INPUT_DIR}/bsm-2m-AL-step7-gt_0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-AL-step7-gt_0_8.csv",
+        f"{INPUT_DIR}/bsm-2m-AL-step7-gt_0_99.csv",
+
+        f"{INPUT_DIR}/bsm-2m-gt_0.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_8.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_9.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_95.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_99.csv",
+
+        f"{INPUT_DIR}/bsm-train.csv",
+
+        f"{INPUT_DIR}/hmdb4-chemex.csv",
+        f"{INPUT_DIR}/hmdb4-deepmet.csv",
+        f"{INPUT_DIR}/hmdb5-full.csv",
     ],
 
     # model
