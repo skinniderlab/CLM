@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # example:
-# bash sh/submit-clm-array.sh sh/grids/grid_bsm_AL.txt
+# bash sh/submit-clm-array.sh sh/grids/clm_v0.txt
 
 set -euo pipefail
 cd ~/git/CLM
