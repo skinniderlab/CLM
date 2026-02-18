@@ -78,8 +78,8 @@ rule preprocess:
     output:
         PATHS['preprocess_output']
     resources:
-        mem_mb=64000 if config.get("dataset_n_rows", 0) > 1_000_000 else 32000,
-        runtime=30,
+        mem_mb=96000 if config.get("dataset_n_rows", 0) > 1_000_000 else 32000,
+        runtime=90 if config.get("dataset_n_rows", 0) > 1_000_000 else 30,
     shell:
         'clm preprocess '
         '--seed {config[random_seed]} '
@@ -109,7 +109,7 @@ rule create_training_sets:
         test0_file = PATHS['test0_file']
     resources:
         mem_mb=128000 if config.get("dataset_n_rows", 0) > 1_000_000 else 64000,
-        runtime=360,
+        runtime=540 if config.get("dataset_n_rows", 0) > 1_000_000 else 360,
     shell:
         'clm create_training_sets '
         '--input-file {input} '
