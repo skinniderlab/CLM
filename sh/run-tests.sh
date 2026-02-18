@@ -1,0 +1,1 @@
+pytest tests/test_snakemake_steps.py::test_04_tabulate_molecules -v -s
