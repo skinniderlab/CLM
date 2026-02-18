@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 
+import numpy as np
 import itertools
 import pathlib
 import json
 import yaml
+import copy
+
+# usage:
+# python sh/write-grid.py
+
 
 # -------------------------
 # edit only this block
 # -------------------------
 
-# usage:
-# python sh/write-grid.py
+BASE_CONFIG = "sh/grids/config_bsm.yaml"
+OUT_ROOT = "/scratch/tmp/sa7998/clm/AL-v0"
+
+GRID_FILE = "sh/grids/grid_bsm_AL.txt"
+CONFIG_DIR = "sh/grids/configs_bsm_AL"
 
 PARAM_SPACE = {
 
@@ -33,12 +42,6 @@ PARAM_SPACE = {
     # "model_params.patience": [1000, 5000],
 
 }
-
-BASE_CONFIG = "workflow/config/config_bsm.yaml"
-OUT_ROOT = "/scratch/tmp/sa7998/clm/AL-v0"
-
-GRID_FILE = "sh/grids/grid_bsm_AL.txt"
-CONFIG_DIR = "sh/grids/configs_bsm_AL"
 
 # -------------------------
 # tag builder
@@ -80,8 +83,40 @@ for combo in itertools.product(*values):
     tag = build_tag(params)
     params["paths.output_dir"] = f"{OUT_ROOT}/{tag}"
 
-    import copy
+    # -------------------------
+    # avoid excessive enum
+    # -------------------------
+    MAX_SAMPLES = 10_000_000
+    MAX_ENUMS = 3
+
+    dataset_path = params["paths.dataset"]
+    n_rows = sum(1 for _ in open(dataset_path)) - 1
+
+    allowed_enums = []
+
+    for ef in base_cfg_data["enum_factors"]:
+        if ef * n_rows <= MAX_SAMPLES:
+            allowed_enums.append(ef)
+
+    # skip config if no enum survives
+    if not allowed_enums:
+        continue
+
+    # limit enum count to max 3 using alternate selection
+    if len(allowed_enums) > MAX_ENUMS:
+        idx = np.linspace(
+            1,
+            len(allowed_enums) - 1,
+            MAX_ENUMS,
+            dtype=int
+        )
+        allowed_enums = [allowed_enums[i] for i in idx]
+
+    # -------------------------
+    # copy and replace configs
+    # -------------------------
     current_config = copy.deepcopy(base_cfg_data)
+    current_config["enum_factors"] = allowed_enums
 
     for k, v in params.items():
         dict_set_nested(current_config, k.split('.'), v)
