@@ -77,7 +77,7 @@
     "random_seed": 5831,
     "paths": {
         "output_dir": "/scratch/tmp/sa7998/clm/v0/hmdb4-deepmet",
-        "dataset": "/scratch/tmp/sa7998/clm-input//hmdb4-deepmet.csv",
+        "dataset": "/scratch/tmp/sa7998/clm-input/hmdb4-deepmet.csv",
         "pubchem_tsv_file": "../tests/test_data/PubChem_truncated.tsv",
         "preprocess_output": "{output_dir}/prior/raw/{dataset}.txt",
         "train_file": "{output_dir}/{enum_factor}/prior/inputs/train_{dataset}_{repr}_{fold}.smi",

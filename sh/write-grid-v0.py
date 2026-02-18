@@ -21,7 +21,7 @@ OUT_ROOT = "/scratch/tmp/sa7998/clm/v0"
 GRID_FILE = "sh/grids/clm_v0.txt"
 CONFIG_DIR = "sh/grids/clm_v0"
 
-INPUT_DIR = "/scratch/tmp/sa7998/clm-input/"
+INPUT_DIR = "/scratch/tmp/sa7998/clm-input"
 
 PARAM_SPACE = {
 
