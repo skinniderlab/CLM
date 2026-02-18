@@ -5,6 +5,7 @@
 
 set -euo pipefail
 cd ~/git/CLM
+mkdir -p logs
 
 GRID_FILE=${1:?provide grid file}
 
