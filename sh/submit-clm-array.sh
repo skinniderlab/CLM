@@ -13,7 +13,7 @@ GRID_NAME="${GRID_BASE%.*}"
 LOG_DIR="logs/$GRID_NAME"
 mkdir -p "$LOG_DIR"
 
-N=$(wc -l < "$GRID_FILE")
+N=$(awk 'END{print NR}' "$GRID_FILE")
 MAX=$((N-1))
 
 echo "submitting array 0-$MAX from $GRID_FILE"
