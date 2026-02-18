@@ -37,10 +37,12 @@ sample_seeds:
 # Note: Both 0 and 1 indicate no augmentation, but with 1, the representations are updated to be different
 # than those provided in the original dataset.
 enum_factors:
-  - 0
   - 2
+  - 4
   - 8
+  - 16
   - 32
+  - 64
 
   # - 0
   # - 4
