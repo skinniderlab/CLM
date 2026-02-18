@@ -130,6 +130,7 @@ for combo in itertools.product(*values):
     # -------------------------
     current_config = copy.deepcopy(base_cfg_data)
     current_config["enum_factors"] = allowed_enums
+    current_config["dataset_n_rows"] = n_rows
 
     for k, v in params.items():
         dict_set_nested(current_config, k.split('.'), v)
