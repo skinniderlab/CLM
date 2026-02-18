@@ -103,5 +103,6 @@
         "invalid_smiles_file": "{output_dir}/{enum_factor}/prior/samples/invalid_{dataset}_{repr}_{fold}_{train_seed}_{sample_seed}_samples_masses.csv.gz",
         "collect_known_smiles": "{output_dir}/{enum_factor}/prior/samples/known_{dataset}_{repr}_{fold}_unique_masses.csv.gz",
         "collect_invalid_smiles": "{output_dir}/{enum_factor}/prior/samples/invalid_{dataset}_{repr}_{fold}_unique_masses.csv.gz"
-    }
+    },
+    "dataset_n_rows": 1125878
 }
