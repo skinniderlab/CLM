@@ -47,15 +47,19 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     sampled_smiles_df = read_file(input_file, stream=False, smile_only=False)
     if "smiles" in sampled_smiles_df.columns:
         sampled_smiles = sampled_smiles_df["smiles"]
+        sampled_loss = sampled_smiles_df["loss"]
     else:
         # legacy output of sampling step produced a csv file without a header
         # but with 2 columns - <loss>, <sampled_smile>
         assert sampled_smiles_df.shape[1] == 2
+        sampled_loss = sampled_smiles_df[0]
         sampled_smiles = sampled_smiles_df[1]
 
     new_smiles = []
     invalid_smiles, known_smiles = defaultdict(int), defaultdict(int)
-    for i, smile in enumerate(tqdm(sampled_smiles)):
+    for i, (smile, loss) in enumerate(
+        tqdm(zip(sampled_smiles, sampled_loss), total=len(sampled_smiles))
+    ):
 
         # input file may have empty value for smile
         if smile.strip() == "":
@@ -81,12 +85,12 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
             ik14 = inchikey.split("-", 1)[0]
 
             if ik14 not in train_ik14:
-                new_smiles.append([canonical_smile, mass, formula, inchikey])
+                new_smiles.append([canonical_smile, mass, formula, inchikey, float(loss)])
             else:
                 known_smiles[canonical_smile] += 1
 
     freqs = pd.DataFrame(
-        new_smiles, columns=["smiles", "mass", "formula", "inchikey"]
+        new_smiles, columns=["smiles", "mass", "formula", "inchikey", "loss"]
     )
 
     # Find unique combinations of inchikey, mass, and formula, and add a
@@ -94,19 +98,24 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     # For each unique combination, select the largest sized canonical smile by ik14.
 
     freqs["ik14"] = freqs["inchikey"].astype(str).str.split("-", n=1).str[0]
+
+    stats = (
+        freqs.groupby("ik14")
+        .agg(
+            size=("ik14", "size"),
+            min_loss=("loss", "min"),
+            median_loss=("loss", "median"),
+            mean_loss=("loss", "mean"),
+            max_loss=("loss", "max"),
+        )
+        .reset_index()
+    )
     unique = freqs.groupby(["ik14"]).first().reset_index()
-    unique = (
-        unique.groupby(["inchikey", "mass", "formula"]).first().reset_index()
-    )
-    unique["size"] = (
-        freqs.groupby(["inchikey", "mass", "formula"])
-        .size()
-        .reset_index(drop=True)
-    )
+    unique = unique.merge(stats, on="ik14")
     unique = unique.sort_values(
         "size", ascending=False, kind="stable"
     ).reset_index(drop=True)
-    unique = unique.drop(columns=["ik14"])
+    unique = unique.drop(columns=["ik14", "loss"])
 
     write_to_csv_file(output_file, unique)
     # TODO: The following approach will result in multiple lines for each repeated smile

@@ -49,11 +49,21 @@ def collect_tabulated_molecules(
 
     # Add inchikey14 and group by this instead
     df["ik14"] = df["inchikey"].astype(str).str.split("-", n=1).str[0]
-
     unique = df.groupby(["ik14"]).first().reset_index()
-    unique["size"] = (
-        df.groupby(["ik14"]).agg({"size": "sum"}).reset_index(drop=True)
+
+    stats = (
+        df.groupby("ik14")
+        .agg(
+            size=("size", "sum"),
+            min_loss=("min_loss", "min"),
+            median_loss=("median_loss", "median"),
+            mean_loss=("mean_loss", "mean"),
+            max_loss=("max_loss", "max"),
+        )
+        .reset_index()
     )
+    unique = unique.merge(stats, on="ik14")
+
     unique.drop(columns=["ik14"], inplace=True)
     write_to_csv_file(output_file, unique)
 
