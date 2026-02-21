@@ -51,6 +51,9 @@ def add_args(parser):
         "--n_layers", type=int, help="Number of layers in the model"
     )
     parser.add_argument(
+        "--n_blocks", type=int, help="Number of blocks for S4 model"
+    )
+    parser.add_argument(
         "--state_dim", type=int, help="State dimension for S4 model"
     )
     parser.add_argument(
@@ -58,6 +61,14 @@ def add_args(parser):
     )
     parser.add_argument(
         "--n_heads", type=int, help="Number of heads for the model"
+    )
+    parser.add_argument(
+        "--head_dim", type=int, help="Dimension of head for the H3 model"
+    )
+    parser.add_argument(
+        "--n_order_heads",
+        type=int,
+        help="Number of groups input channels for filter computation for the Hyena model",
     )
     parser.add_argument(
         "--exp_factor", type=int, help="Expansion factor for Transformer model"
@@ -90,6 +101,9 @@ def add_args(parser):
     )
     parser.add_argument(
         "--batch_size", type=int, help="Batch size for training"
+    )
+    parser.add_argument(
+        "--max_len", type=int, help="Maximum length of the generated sequences"
     )
     parser.add_argument(
         "--learning_rate", type=float, help="Learning rate for the optimizer"
@@ -205,9 +219,12 @@ def train_models_RNN(
     embedding_size,
     hidden_size,
     n_layers,
+    n_blocks,
     state_dim,
     n_ssm,
     n_heads,
+    head_dim,
+    n_order_heads,
     exp_factor,
     bias,
     use_fast_fftconv,
@@ -218,6 +235,7 @@ def train_models_RNN(
     filter_order,
     dropout,
     batch_size,
+    max_len,
     learning_rate,
     max_epochs,
     patience,
@@ -247,9 +265,10 @@ def train_models_RNN(
             vocabulary=dataset.vocabulary,
             model_dim=embedding_size,
             state_dim=state_dim,
-            n_layers=n_layers,
+            n_blocks=n_blocks,
             n_ssm=n_ssm,
             dropout=dropout,
+            max_len=max_len,
         )
 
     elif model_type == "H3":
@@ -258,12 +277,13 @@ def train_models_RNN(
             n_layers=n_layers,
             model_dim=embedding_size,
             state_dim=state_dim,
-            head_dim=n_heads,
+            head_dim=head_dim,
             dropout=dropout,
             use_fast_fftconv=use_fast_fftconv,
             measure=measure,
             mode=mode,
             lr=lr,
+            max_len=max_len,
         )
 
     elif model_type == "Hyena":
@@ -273,8 +293,9 @@ def train_models_RNN(
             d_model=embedding_size,
             order=order,
             filter_order=filter_order,
-            num_heads=n_heads,
+            n_order_heads=n_order_heads,
             dropout=dropout,
+            max_len=max_len,
         )
 
     elif model_type == "Transformer":
@@ -286,6 +307,7 @@ def train_models_RNN(
             dropout=dropout,
             exp_factor=exp_factor,
             bias=bias,
+            max_len=max_len,
         )
 
     elif model_type == "RNN":
@@ -386,9 +408,12 @@ def main(args):
         embedding_size=args.embedding_size,
         hidden_size=args.hidden_size,
         n_layers=args.n_layers,
+        n_blocks=args.n_blocks,
         state_dim=args.state_dim,
         n_ssm=args.n_ssm,
         n_heads=args.n_heads,
+        head_dim=args.head_dim,
+        n_order_heads=args.n_order_heads,
         exp_factor=args.exp_factor,
         bias=args.bias,
         use_fast_fftconv=args.use_fast_fftconv,
@@ -399,6 +424,7 @@ def main(args):
         filter_order=args.filter_order,
         dropout=args.dropout,
         batch_size=args.batch_size,
+        max_len=args.max_len,
         learning_rate=args.learning_rate,
         max_epochs=args.max_epochs,
         patience=args.patience,

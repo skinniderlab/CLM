@@ -63,9 +63,8 @@ class H3Model(nn.Module):
         self.mode = mode
 
         # Model components
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.model_dim, padding_idx=padding_t
+            self.vocabulary_size, self.model_dim, padding_idx=self.padding_idx
         )
 
         # Stack of H3 layers using actual Safari implementation
@@ -95,6 +94,9 @@ class H3Model(nn.Module):
 
         # Dropout
         self.dropout_layer = nn.Dropout(dropout)
+
+        # Final layer norm applied after all H3 layers, before output projection.
+        self.final_norm = nn.LayerNorm(self.model_dim)
 
         # Output projection
         self.output_embedding = nn.Linear(self.model_dim, self.vocabulary_size)
@@ -126,6 +128,9 @@ class H3Model(nn.Module):
             x = self.dropout_layer(x)
             x = x + residual
 
+        # Final layer norm before output projection
+        x = self.final_norm(x)
+
         # Project to vocabulary
         logits = self.output_embedding(x)  # (batch_size, seq_len, vocab_size)
 
@@ -133,16 +138,13 @@ class H3Model(nn.Module):
 
     def loss(self, batch):
         """Compute loss for a batch."""
-        if len(batch) == 3:
-            padded, lengths, _ = batch
-        else:
-            padded, lengths = batch
+        # Collate always returns (padded, lengths, descriptors); descriptor ignored here
+        padded, lengths, _ = batch
 
         padded = padded.to(self.device)
 
-        # Handle input format
-        if padded.dim() == 2:
-            padded = padded.transpose(0, 1)
+        # Collate always returns (seq_len, batch_size); transpose to (batch_size, seq_len)
+        padded = padded.transpose(0, 1)
 
         # Forward pass
         logits = self(padded)  # (batch_size, seq_len, vocab_size)
@@ -173,6 +175,7 @@ class H3Model(nn.Module):
         if max_len is None:
             max_len = self.max_len
 
+        was_training = self.training
         self.eval()
 
         # Get tokens
@@ -234,12 +237,21 @@ class H3Model(nn.Module):
                 if torch.prod(finished) == 1:
                     break
 
-        # Concatenate and decode
-        seqs = torch.cat(sequences, 1)
+        # Concatenate sequences and decode
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.empty(n_sequences, 1, dtype=torch.long)
+            .fill_(start_token)
+            .to(self.device)
+        )
         if return_smiles:
             smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
             smiles = sequences
+
+        if was_training:
+            self.train()
 
         if return_losses:
             return smiles, log_probs.detach().cpu().numpy()
@@ -255,7 +267,7 @@ class HyenaModel(nn.Module):
         d_model=256,
         order=2,
         filter_order=64,
-        num_heads=1,
+        n_order_heads=1,
         dropout=0.25,
         max_len=250,
         **hyena_args,
@@ -284,7 +296,7 @@ class HyenaModel(nn.Module):
                     l_max=max_len,
                     order=order,
                     filter_order=filter_order,
-                    num_heads=num_heads,
+                    num_heads=n_order_heads,
                     dropout=dropout,
                     **hyena_args,
                 )
@@ -297,6 +309,8 @@ class HyenaModel(nn.Module):
         )
 
         self.dropout_layer = nn.Dropout(dropout)
+        # Final layer norm applied after all Hyena layers, before output projection.
+        self.final_norm = nn.LayerNorm(d_model)
         self.output_embedding = nn.Linear(d_model, self.vocabulary_size)
         self.loss_fn = nn.CrossEntropyLoss(
             ignore_index=self.padding_idx, reduction="none"
@@ -315,17 +329,17 @@ class HyenaModel(nn.Module):
             x = self.dropout_layer(x)
             x = x + residual
 
+        # Final layer norm before output projection
+        x = self.final_norm(x)
         return self.output_embedding(x)
 
     def loss(self, batch):
-        if len(batch) == 3:
-            padded, lengths, _ = batch
-        else:
-            padded, lengths = batch
+        # Collate always returns (padded, lengths, descriptors); descriptor ignored here
+        padded, lengths, _ = batch
 
         padded = padded.to(self.device)
-        if padded.dim() == 2:
-            padded = padded.transpose(0, 1)
+        # Collate always returns (seq_len, batch_size); transpose to (batch_size, seq_len)
+        padded = padded.transpose(0, 1)
 
         logits = self(padded)
         targets = padded[:, 1:]
@@ -350,6 +364,7 @@ class HyenaModel(nn.Module):
         if max_len is None:
             max_len = self.max_len
 
+        was_training = self.training
         self.eval()
 
         start_token = self.vocabulary.dictionary["SOS"]
@@ -394,13 +409,23 @@ class HyenaModel(nn.Module):
                 if torch.prod(finished) == 1:
                     break
 
-        seqs = torch.cat(sequences, 1)
+        # Concatenate sequences and decode
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.empty(n_sequences, 1, dtype=torch.long)
+            .fill_(start_token)
+            .to(self.device)
+        )
         if return_smiles:
             outputs = [
                 self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs
             ]
         else:
             outputs = sequences
+
+        if was_training:
+            self.train()
 
         if return_losses:
             return outputs, log_probs.detach().cpu().numpy()
@@ -414,7 +439,7 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         vocabulary,
         model_dim=256,
         state_dim=64,
-        n_layers=4,
+        n_blocks=2,
         n_ssm=1,
         dropout=0.25,
         max_len=250,
@@ -430,12 +455,11 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         self.vocabulary = vocabulary
         self.vocabulary_size = len(self.vocabulary)
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
 
         # hyperparams
         self.model_dim = model_dim
         self.state_dim = state_dim
-        self.n_layers = n_layers
+        self.n_blocks = n_blocks
         self.n_ssm = n_ssm
         self.dropout = dropout
         self.max_len = max_len
@@ -458,12 +482,12 @@ class StructuredStateSpaceSequenceModel(nn.Module):
 
         # model components
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.model_dim, padding_idx=padding_t
+            self.vocabulary_size, self.model_dim, padding_idx=self.padding_idx
         )
 
         self.model = SequenceModel(
             d_model=self.model_dim,
-            n_layers=self.n_layers,
+            n_blocks=self.n_blocks,
             transposed=False,  # Changed to False - expect (batch, length, dim)
             dropout=self.dropout,
             layer=self.layer_config,
@@ -515,19 +539,13 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         return x_t
 
     def loss(self, batch):
-        if len(batch) == 3:
-            padded, lengths, _ = batch
-        else:
-            padded, lengths = batch
+        # Collate always returns (padded, lengths, descriptors); descriptor ignored here
+        padded, lengths, _ = batch
 
         padded = padded.to(self.device)
 
-        # Handle different input formats
-        # RNN collate returns (seq_len, batch_size) format
-        # S4 model expects (batch_size, seq_len) format
-        # Always transpose since collate always uses (seq_len, batch_size)
-        if padded.dim() == 2:
-            padded = padded.transpose(0, 1)
+        # Collate always returns (seq_len, batch_size); transpose to (batch_size, seq_len)
+        padded = padded.transpose(0, 1)
 
         # batch_size = padded.shape[0]
         # seq_len = padded.shape[1]
@@ -564,6 +582,7 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         if max_len is None:
             max_len = self.max_len
 
+        was_training = self.training
         # IMPORTANT: Set model to eval mode before sampling
         self.eval()
 
@@ -644,6 +663,9 @@ class StructuredStateSpaceSequenceModel(nn.Module):
         else:
             outputs = sequences
 
+        if was_training:
+            self.train()
+
         # Optionally return losses
         if return_losses:
             return outputs, log_probs.detach().cpu().numpy()
@@ -674,10 +696,11 @@ class RNN(nn.Module):
 
         # embedding layer
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
         self.embedding_size = embedding_size
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.embedding_size, padding_idx=padding_t
+            self.vocabulary_size,
+            self.embedding_size,
+            padding_idx=self.padding_idx,
         )
 
         # RNN architecture
@@ -752,6 +775,9 @@ class RNN(nn.Module):
         return_losses=False,
         descriptors=None,
     ):
+        was_training = self.training
+        self.eval()
+
         # get start/stop tokens
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
@@ -786,25 +812,26 @@ class RNN(nn.Module):
         finished = torch.zeros(n_sequences).byte().to(self.device)
         log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-        for step in range(max_len):
-            embedded = self.embedding(inputs)
-            output, hidden = self.rnn(embedded, hidden)
-            logits = self.decoder(output)
-            prob = F.softmax(logits, dim=2)
-            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(
-                1, -1
-            )
-            sequences.append(inputs.view(-1, 1))
-            # calculate NLL too
-            log_prob = F.log_softmax(logits.squeeze(0), dim=1)
-            losses = loss(log_prob, inputs.squeeze(0))
-            # zero losses if we are finished sampling
-            losses[finished.squeeze(0).bool()] = 0
-            log_probs += losses
-            # track whether sampling is done for all molecules
-            finished = torch.ge(finished + (inputs == stop_token), 1)
-            if torch.prod(finished) == 1:
-                break
+        with torch.no_grad():
+            for step in range(max_len):
+                embedded = self.embedding(inputs)
+                output, hidden = self.rnn(embedded, hidden)
+                logits = self.decoder(output)
+                prob = F.softmax(logits, dim=2)
+                inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(
+                    1, -1
+                )
+                sequences.append(inputs.view(-1, 1))
+                # calculate NLL too
+                log_prob = F.log_softmax(logits.squeeze(0), dim=1)
+                losses = loss(log_prob, inputs.squeeze(0))
+                # zero losses if we are finished sampling
+                losses[finished.squeeze(0).bool()] = 0
+                log_probs += losses
+                # track whether sampling is done for all molecules
+                finished = torch.ge(finished + (inputs == stop_token), 1)
+                if torch.prod(finished) == 1:
+                    break
 
         # concatenate sequences and decode
         seqs = torch.cat(sequences, 1)
@@ -814,6 +841,9 @@ class RNN(nn.Module):
             ]
         else:
             outputs = sequences
+
+        if was_training:
+            self.train()
 
         # optionally return losses
         if return_losses:
@@ -1002,7 +1032,6 @@ class Transformer(nn.Module):
         self.vocabulary = vocabulary
         self.vocabulary_size = len(self.vocabulary)
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
 
         # hyperparams
         self.n_blocks = n_blocks
@@ -1018,7 +1047,7 @@ class Transformer(nn.Module):
                 wte=nn.Embedding(
                     self.vocabulary_size,
                     self.embedding_size,
-                    padding_idx=padding_t,
+                    padding_idx=self.padding_idx,
                 ),
                 wpe=nn.Embedding(self.max_len, self.embedding_size),
                 drop=nn.Dropout(self.dropout),
@@ -1085,17 +1114,13 @@ class Transformer(nn.Module):
         return logits
 
     def loss(self, batch):
-        if len(batch) == 3:
-            padded, lengths, _ = batch
-        else:
-            padded, lengths = batch
+        # Collate always returns (padded, lengths, descriptors); descriptor ignored here
+        padded, lengths, _ = batch
 
         padded = padded.to(self.device)
 
-        # RNN collate returns (seq_len, batch_size) format
-        # Transformer expects (batch_size, seq_len) format
-        if padded.dim() == 2:
-            padded = padded.transpose(0, 1)
+        # Collate always returns (seq_len, batch_size); transpose to (batch_size, seq_len)
+        padded = padded.transpose(0, 1)
 
         # Get actual sequence length from batch
         actual_seq_len = padded.shape[1]
@@ -1124,6 +1149,7 @@ class Transformer(nn.Module):
         # Reset recurrent state before sampling
         # self.reset_state(n_sequences, device=self.device)
 
+        was_training = self.training
         self.eval()
         torch.cuda.empty_cache()
 
@@ -1176,7 +1202,7 @@ class Transformer(nn.Module):
                 if torch.prod(finished) == 1:
                     break
 
-        # concatenate sequences and decode
+        # Concatenate sequences and decode
         seqs = (
             torch.cat(sequences, 1)
             if sequences
@@ -1192,6 +1218,9 @@ class Transformer(nn.Module):
             outputs = sequences
 
         torch.cuda.empty_cache()
+
+        if was_training:
+            self.train()
 
         # optionally return losses
         if return_losses:
@@ -1284,9 +1313,10 @@ class ConditionalRNN(nn.Module):
             )  # Add num_descriptors to self.hidden_size
 
         self.padding_idx = self.vocabulary.dictionary["<PAD>"]
-        padding_t = torch.tensor(self.padding_idx).to(self.device)
         self.embedding = nn.Embedding(
-            self.vocabulary_size, self.embedding_size, padding_idx=padding_t
+            self.vocabulary_size,
+            self.embedding_size,
+            padding_idx=self.padding_idx,
         )
         self.n_layers = n_layers
         self.rnn_type = rnn_type
@@ -1426,6 +1456,9 @@ class ConditionalRNN(nn.Module):
             n_sequences is None or len(descriptors) == n_sequences
         ), "When providing descriptor values, either omit n_sequences or make them conform to the number of descriptors"
 
+        was_training = self.training
+        self.eval()
+
         # get start/stop tokens
         start_token = self.vocabulary.dictionary["SOS"]
         stop_token = self.vocabulary.dictionary["EOS"]
@@ -1463,42 +1496,47 @@ class ConditionalRNN(nn.Module):
         finished = torch.zeros(n_sequences).byte().to(self.device)
         log_probs = torch.zeros(n_sequences).to(self.device)
         sequences = []
-        for step in range(max_len):
-            embedded = self.embedding(inputs)
-            if self.conditional_emb_l:
-                combined_embedding = self.conditional_to_emb(
-                    descriptors.float()
-                )
-                embedded = torch.cat(
-                    [embedded, combined_embedding], axis=2
-                ).float()
-            elif self.conditional_emb:
-                embedded = torch.cat([embedded, descriptors], axis=2).float()
+        with torch.no_grad():
+            for step in range(max_len):
+                embedded = self.embedding(inputs)
+                if self.conditional_emb_l:
+                    combined_embedding = self.conditional_to_emb(
+                        descriptors.float()
+                    )
+                    embedded = torch.cat(
+                        [embedded, combined_embedding], axis=2
+                    ).float()
+                elif self.conditional_emb:
+                    embedded = torch.cat(
+                        [embedded, descriptors], axis=2
+                    ).float()
 
-            output, hidden = self.rnn(embedded, hidden)
-            if self.conditional_dec_l:
-                combined_embedding = self.conditional_to_dec(
-                    descriptors.float()
-                )
-                output = torch.cat([output, combined_embedding], axis=2).float()
-            elif self.conditional_dec:
-                output = torch.cat([output, descriptors], axis=2).float()
+                output, hidden = self.rnn(embedded, hidden)
+                if self.conditional_dec_l:
+                    combined_embedding = self.conditional_to_dec(
+                        descriptors.float()
+                    )
+                    output = torch.cat(
+                        [output, combined_embedding], axis=2
+                    ).float()
+                elif self.conditional_dec:
+                    output = torch.cat([output, descriptors], axis=2).float()
 
-            logits = self.decoder(output)
-            prob = F.softmax(logits, dim=2)
-            inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(
-                1, -1
-            )
-            sequences.append(inputs.view(-1, 1))
-            log_prob = F.log_softmax(logits.squeeze(0), dim=1)
-            losses = loss(log_prob, inputs.squeeze(0))
-            # zero losses if we are finished sampling
-            losses[finished.squeeze(0).bool()] = 0
-            log_probs += losses
-            # track whether sampling is done for all molecules
-            finished = torch.ge(finished + (inputs == stop_token), 1)
-            if torch.prod(finished) == 1:
-                break
+                logits = self.decoder(output)
+                prob = F.softmax(logits, dim=2)
+                inputs = torch.multinomial(prob.squeeze(0), num_samples=1).view(
+                    1, -1
+                )
+                sequences.append(inputs.view(-1, 1))
+                log_prob = F.log_softmax(logits.squeeze(0), dim=1)
+                losses = loss(log_prob, inputs.squeeze(0))
+                # zero losses if we are finished sampling
+                losses[finished.squeeze(0).bool()] = 0
+                log_probs += losses
+                # track whether sampling is done for all molecules
+                finished = torch.ge(finished + (inputs == stop_token), 1)
+                if torch.prod(finished) == 1:
+                    break
 
         # concatenate sequences and decode
         seqs = torch.cat(sequences, 1)
@@ -1506,6 +1544,9 @@ class ConditionalRNN(nn.Module):
             smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
         else:
             smiles = sequences
+
+        if was_training:
+            self.train()
 
         if return_losses:
             return smiles, log_probs.detach().cpu().numpy()
