@@ -487,7 +487,7 @@ class StructuredStateSpaceSequenceModel(nn.Module):
 
         self.model = SequenceModel(
             d_model=self.model_dim,
-            n_blocks=self.n_blocks,
+            n_layers=self.n_blocks,
             transposed=False,  # Changed to False - expect (batch, length, dim)
             dropout=self.dropout,
             layer=self.layer_config,
