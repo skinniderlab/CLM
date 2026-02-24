@@ -1,0 +1,16 @@
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-AL-step0-gt_0_5-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-AL-step0-gt_0_8-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-AL-step0-gt_0_99-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-AL-step7-gt_0_5-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-AL-step7-gt_0_8-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-AL-step7-gt_0_99-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-gt_0-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-gt_0_5-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-gt_0_8-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-gt_0_9-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-gt_0_95-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-2m-gt_0_99-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/bsm-train-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/hmdb4-chemex-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/hmdb4-deepmet-model_type=S4.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-S4/hmdb5-full-model_type=S4.json
