@@ -48,7 +48,7 @@ echo "using config: $GRID_CONFIG"
 snakemake all \
   --snakefile workflow/Snakefile \
   --configfile "$GRID_CONFIG" \
-  --jobs 128 \
+  --jobs 4 \
   --slurm --default-resources slurm_partition=main,skinniderlab \
   --latency-wait 60 \
   --rerun-incomplete \
