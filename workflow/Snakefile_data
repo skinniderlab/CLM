@@ -232,7 +232,7 @@ rule sample_molecules_RNN:
         output_file = PATHS['input_file']
     resources:
         mem_mb=12000,
-        runtime=15+MODEL_PARAMS["sample_mols"]//10000,
+        runtime=15+MODEL_PARAMS["sample_mols"]//3000,
         slurm_extra="--gres=gpu:1"
     shell:
         'clm sample_molecules_RNN '
