@@ -2,8 +2,8 @@
 #SBATCH --job-name=clm
 #SBATCH --partition=main,skinniderlab
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=4G
-#SBATCH --time=96:00:00
+#SBATCH --mem=1G
+#SBATCH --time=120:00:00
 #SBATCH --output=logs/hub_%A_%a.log
 #SBATCH --error=logs/hub_%A_%a.log
 
