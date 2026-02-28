@@ -92,16 +92,11 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     # Find unique combinations of inchikey, mass, and formula, and add a
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique combination, select the largest sized canonical smile by ik14.
-
     unique = (
-        freqs.groupby(["inchikey", "mass", "formula"]).first().reset_index()
-    )
-    unique["size"] = (
         freqs.groupby(["inchikey", "mass", "formula"])
-        .size()
-        .reset_index(drop=True)
+        .agg(smiles=("smiles", "first"), size=("smiles", "count"))
+        .reset_index()
     )
-
     unique["ik14"] = unique["inchikey"].str[:14]
 
     unique = (

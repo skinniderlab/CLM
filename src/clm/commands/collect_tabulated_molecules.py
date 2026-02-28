@@ -75,11 +75,8 @@ def collect_tabulated_molecules(
             [read_csv_file(file, delimiter=",") for file in known_smiles],
             ignore_index=True,
         )
-        unique_known = known_df.groupby(["smiles"]).first().reset_index()
-        unique_known["size"] = (
-            known_df.groupby(["smiles"])
-            .agg({"size": "sum"})
-            .reset_index(drop=True)
+        unique_known = (
+            known_df.groupby("smiles").agg(size=("size", "sum")).reset_index()
         )
         write_to_csv_file(
             os.path.join(
@@ -94,11 +91,8 @@ def collect_tabulated_molecules(
             [read_csv_file(file, delimiter=",") for file in invalid_smiles],
             ignore_index=True,
         )
-        unique_invalid = invalid_df.groupby(["smiles"]).first().reset_index()
-        unique_invalid["size"] = (
-            invalid_df.groupby(["smiles"])
-            .agg({"size": "sum"})
-            .reset_index(drop=True)
+        unique_invalid = (
+            invalid_df.groupby("smiles").agg(size=("size", "sum")).reset_index()
         )
         write_to_csv_file(
             os.path.join(
