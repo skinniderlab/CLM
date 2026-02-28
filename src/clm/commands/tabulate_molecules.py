@@ -92,21 +92,32 @@ def tabulate_molecules(input_file, train_file, representation, output_file):
     # Find unique combinations of inchikey, mass, and formula, and add a
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique combination, select the largest sized canonical smile by ik14.
-
-    freqs["ik14"] = freqs["inchikey"].astype(str).str.split("-", n=1).str[0]
-    unique = freqs.groupby(["ik14"]).first().reset_index()
     unique = (
-        unique.groupby(["inchikey", "mass", "formula"]).first().reset_index()
-    )
-    unique["size"] = (
         freqs.groupby(["inchikey", "mass", "formula"])
-        .size()
+        .agg(smiles=("smiles", "first"), size=("smiles", "count"))
+        .reset_index()
+    )
+    unique["ik14"] = unique["inchikey"].str[:14]
+
+    unique = (
+        unique.sort_values("size", ascending=False, kind="stable")
+        .groupby("ik14", sort=False)
+        .agg(
+            size=("size", "sum"),
+            **{
+                col: (col, "first")
+                for col in unique.columns
+                if col not in ("ik14", "size")
+            },
+        )
         .reset_index(drop=True)
     )
-    unique = unique.sort_values(
-        "size", ascending=False, kind="stable"
-    ).reset_index(drop=True)
-    unique = unique.drop(columns=["ik14"])
+
+    unique = (
+        unique.sort_values("size", ascending=False, kind="stable").reset_index(
+            drop=True
+        )
+    )[["inchikey", "mass", "formula", "smiles", "size"]]
 
     write_to_csv_file(output_file, unique)
     # TODO: The following approach will result in multiple lines for each repeated smile

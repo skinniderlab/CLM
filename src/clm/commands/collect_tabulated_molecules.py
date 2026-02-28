@@ -43,18 +43,27 @@ def collect_tabulated_molecules(
     # `size` column denoting the frequency of occurrence of each combination.
     # For each unique key, select the most sampled canonical smile.
     df.sort_values(by=["size"], ascending=False, inplace=True)
+    df["ik14"] = df["inchikey"].str[:14]
 
-    # May need to later identify subset with + or - in row,
-    # apply sanitization step to generate cleaned smiles, inchikey
-
-    # Add inchikey14 and group by this instead
-    df["ik14"] = df["inchikey"].astype(str).str.split("-", n=1).str[0]
-
-    unique = df.groupby(["ik14"]).first().reset_index()
-    unique["size"] = (
-        df.groupby(["ik14"]).agg({"size": "sum"}).reset_index(drop=True)
+    unique = (
+        df.groupby("ik14", sort=False)
+        .agg(
+            size=("size", "sum"),
+            **{
+                col: (col, "first")
+                for col in df.columns
+                if col not in ("ik14", "size")
+            },
+        )
+        .reset_index(drop=True)
     )
-    unique.drop(columns=["ik14"], inplace=True)
+
+    unique = (
+        unique.sort_values("size", ascending=False, kind="stable").reset_index(
+            drop=True
+        )
+    )[["inchikey", "mass", "formula", "smiles", "size"]]
+
     write_to_csv_file(output_file, unique)
 
     # Known smiles are all the sampled smiles found in training set,
@@ -66,11 +75,8 @@ def collect_tabulated_molecules(
             [read_csv_file(file, delimiter=",") for file in known_smiles],
             ignore_index=True,
         )
-        unique_known = known_df.groupby(["smiles"]).first().reset_index()
-        unique_known["size"] = (
-            known_df.groupby(["smiles"])
-            .agg({"size": "sum"})
-            .reset_index(drop=True)
+        unique_known = (
+            known_df.groupby("smiles").agg(size=("size", "sum")).reset_index()
         )
         write_to_csv_file(
             os.path.join(
@@ -85,11 +91,8 @@ def collect_tabulated_molecules(
             [read_csv_file(file, delimiter=",") for file in invalid_smiles],
             ignore_index=True,
         )
-        unique_invalid = invalid_df.groupby(["smiles"]).first().reset_index()
-        unique_invalid["size"] = (
-            invalid_df.groupby(["smiles"])
-            .agg({"size": "sum"})
-            .reset_index(drop=True)
+        unique_invalid = (
+            invalid_df.groupby("smiles").agg(size=("size", "sum")).reset_index()
         )
         write_to_csv_file(
             os.path.join(
