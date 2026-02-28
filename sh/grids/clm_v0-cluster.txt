@@ -1,0 +1,10 @@
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_5-random.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_5-bitbirch_random.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_5-fps_maxmin.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_5-pca_grid.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_5-umap_grid.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_8-random.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_8-bitbirch_random.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_8-fps_maxmin.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_8-pca_grid.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-cluster/bsm-2m-gt_0_8-umap_grid.json
