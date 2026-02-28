@@ -17,6 +17,12 @@ MODEL_PARAMS = config['model_params']
 MIN_FREQS = config['structural_prior_min_freq']
 ERR_PPM = config['err_ppm']
 
+# runtime divisor for sample_molecules_RNN
+if MODEL_PARAMS["model_type"] == "RNN":
+    SAMPLE_DIVISOR = 10000
+else:
+    SAMPLE_DIVISOR = 3000
+
 shell.executable("/bin/bash")
 
 wildcard_constraints:
@@ -232,7 +238,7 @@ rule sample_molecules_RNN:
         output_file = PATHS['input_file']
     resources:
         mem_mb=12000,
-        runtime=15+MODEL_PARAMS["sample_mols"]//3000,
+        runtime=15+MODEL_PARAMS["sample_mols"] // SAMPLE_DIVISOR,
         slurm_extra="--gres=gpu:1"
     shell:
         'clm sample_molecules_RNN '
