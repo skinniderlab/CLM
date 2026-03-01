@@ -131,3 +131,6 @@ zipp==3.19.0
 einops==0.6.0
 opt_einsum==3.3.0
 s4dd @ git+https://github.com/GuptaVishu2002/s4-for-de-novo-drug-design.git@fix-module-library-packaging
+safari @ git+https://github.com/GuptaVishu2002/safari.git@fix-setup
+pytorch-lightning==2.6.0
+hydra-core==1.3.2

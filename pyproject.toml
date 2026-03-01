@@ -26,9 +26,12 @@ dependencies = [
     "pulp<2.8.0",
     "rdkit",
     "s4dd @ git+https://github.com/GuptaVishu2002/s4-for-de-novo-drug-design.git@fix-module-library-packaging",
+    "safari @ git+https://github.com/GuptaVishu2002/safari.git@fix-setup",
     "scikit-learn",
     "scipy==1.11.1",
     "selfies",
+    "hydra-core",
+    "pytorch-lightning",
     # snakemake->stopit needs pkg_resources, but is failing
     # to specify setuptools as a dependency
     "setuptools",

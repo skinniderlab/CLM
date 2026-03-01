@@ -51,17 +51,28 @@ preprocess:
 
 # Parameters that define the neural network model and training process.
 model_params:
-  model_type: RNN # Type of model to be used. Available options are 'RNN', 'Transformer', 'S4'.
+  model_type: RNN # Type of model to be used. Available options are 'RNN', 'Transformer', 'S4', 'H3', 'Hyena'.
   rnn_type: LSTM # Applicable to model_type 'RNN' only. Available options are 'LSTM' and 'GRU'
   embedding_size: 32 # Size of the embedding vectors that represent each token in the input sequence.
   hidden_size: 256 # Size of the hidden state of the model.
   n_layers: 3 # Number of stacked RNN layers in the model.
-  state_dim: 64 # State dimension for S4 model. Applicable if model_type is 'S4'.
+  n_blocks: 2 # Number of blocks for S4 model. Applicable if model_type is 'S4'.
+  state_dim: 64 # State dimension for S4 model. Applicable if model_type is 'S4', 'H3'.
   n_ssm: 1 # Number of SSM layers for S4 model. Applicable if model_type is 'S4'.
   n_heads: 4 # Number of attention heads for the model. Applicable if model_type is 'Transformer'.
+  head_dim: 1 # Dimension of head for the model. Applicable if model_type is 'H3'.
+  n_order_heads: 1 # Number of groups input channels for filter computation for the Hyena model. Applicable if model_type is 'Hyena'.
   exp_factor: 4 # Expansion factor for Transformer model. Applicable if model_type is 'Transformer'.
+  bias: true # Whether to include bias terms in the model's layers. Applicable if model_type is 'Transformer'.
+  use_fast_fftconv: false # Whether to use fast FFT convolution for H3 model. Applicable if model_type is 'H3'.
+  order: 2 # Order of the convolution for Hyena model. Applicable if model_type is 'Hyena'.
+  filter_order: 64 # Filter order for Hyena model. Applicable if model_type is 'Hyena'.
+  measure: "diag-lin" # Measure for H3 layers. Applicable if model_type is 'H3'.
+  mode: "diag" # Mode for H3 layers. Applicable if model_type is 'H3'.
+  lr: 0.0 # Learning rate for the H3 mlayers. Applicable if model_type is 'H3'.
   dropout: 0 # Dropout rate applied to the RNN layer for regularization.
   batch_size: 64 # Number of samples processed before the models internal parameters are updated.
+  max_len: 250 # Maximum length of input sequences. Sequences longer than this will be truncated, and shorter sequences will be padded.
   learning_rate: 0.001 # Used by the optimizer to update model parameters.
   max_epochs: 3 # Maximum number of training epochs (complete passes through the training dataset).
   patience: 50000 # Number of steps with no improvement in the validation loss after which early stopping is triggered.
