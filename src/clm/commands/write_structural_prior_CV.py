@@ -242,8 +242,8 @@ def write_structural_prior_CV(
     logger.info("Reading sample file from generative model")
     gen = read_csv_file(sample_file)
 
-    # some SMILES may be invalid when tabulate_molecules used a different 
-    # rdkit version -- validate only generated SMILES that are candidates to 
+    # some SMILES may be invalid when tabulate_molecules used a different
+    # rdkit version -- validate only generated SMILES that are candidates to
     # match a test molecule
     gen_sorted = gen.sort_values("mass", kind="stable")
     gen_masses = gen_sorted["mass"].values
