@@ -252,12 +252,13 @@ def write_structural_prior_CV(
     lefts = np.searchsorted(gen_masses, lo_vals, side="left")
     rights = np.searchsorted(gen_masses, hi_vals, side="right")
     candidate_positions = set()
-    for l, r in zip(lefts, rights):
-        candidate_positions.update(range(l, r))
+    for left, right in zip(lefts, rights):
+        candidate_positions.update(range(left, right))
     candidates = gen_sorted.iloc[sorted(candidate_positions)]
     invalid_idx = candidates.index[
-        candidates["smiles"].progress_apply(lambda s: clean_mol(
-            s, raise_error=False) is None)
+        candidates["smiles"].progress_apply(
+            lambda s: clean_mol(s, raise_error=False) is None
+        )
     ]
     gen = gen.drop(invalid_idx)
 
