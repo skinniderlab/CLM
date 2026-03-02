@@ -302,8 +302,10 @@ def sample_molecules_RNN(
     open(output_file, "w").close()
     if preload_condition and  heldout_dataset is not None:
         preload_descriptors=torch.stack([_[1] for _ in heldout_dataset], 0).to(model.device)
-        while len(preload_descriptors)<4*batch_size:
+        while len(preload_descriptors)<batch_size:
             preload_descriptors=torch.cat([preload_descriptors, preload_descriptors], 0)
+        preload_descriptors=torch.stack([preload_descriptors, preload_descriptors], 0)
+        
     with tqdm(total=sample_mols) as pbar:
         for i in range(0, sample_mols, batch_size):
             n_sequences = min(batch_size, sample_mols - i)
