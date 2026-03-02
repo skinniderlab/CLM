@@ -81,6 +81,9 @@ def add_args(parser):
     parser.add_argument(
         "--learning_rate", type=float, help="Learning rate for the optimizer"
     )
+    parser.add_argument(
+        "--num_workers", type=int, help="number of workers for loading training data", default=3
+    )
 
     parser.add_argument(
         "--max_epochs", type=int, help="Maximum number of epochs for training"
@@ -220,6 +223,7 @@ def train_models_RNN(
     smiles_file,
     model_file,
     loss_file,
+    num_workers,
     conditional=False,
     conditional_emb=False,
     conditional_emb_l=True,
@@ -321,7 +325,7 @@ def train_models_RNN(
     logger.info(dataset.vocabulary.dictionary)
 
     loader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, collate_fn=dataset.collate
+        dataset, batch_size=batch_size, shuffle=True, collate_fn=dataset.collate, num_workers=num_workers
     )
     optim = Adam(
         model.parameters(), betas=(0.9, 0.999), eps=1e-08, lr=learning_rate
@@ -411,4 +415,5 @@ def main(args):
         conditional_dec=args.conditional_dec,
         conditional_dec_l=args.conditional_dec_l,
         conditional_h=args.conditional_h,
+        num_workers=args.num_workers
     )
