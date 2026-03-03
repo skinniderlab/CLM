@@ -260,7 +260,22 @@ def write_structural_prior_CV(
             lambda s: clean_mol(s, raise_error=False) is None
         )
     ]
+
     gen = gen.drop(invalid_idx)
+
+    n_candidates = len(candidates)
+    n_invalid = len(invalid_idx)
+
+    # log if invalid SMILES were detected and removed
+    if n_invalid > 0:
+        examples = gen.loc[invalid_idx, "smiles"].head(5).tolist()
+
+        logger.warning(
+            f"Removed {n_invalid} invalid SMILES among "
+            f"{n_candidates} candidates to match a test molecule "
+            f"(possibly due to a different rdkit version). "
+            f"Examples: {examples}"
+        )
 
     inputs = {"model": gen.assign(source="model")}
 
