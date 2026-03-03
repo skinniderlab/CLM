@@ -3,6 +3,9 @@
 # example:
 # bash sh/submit-clm-array.sh sh/grids/clm_v0.txt
 
+# Don't forget to remove lock files if rerunning an incomplete job
+# rm -rf .snakemake/locks
+
 set -euo pipefail
 cd ~/git/CLM
 
