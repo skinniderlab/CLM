@@ -261,8 +261,6 @@ def write_structural_prior_CV(
         )
     ]
 
-    gen = gen.drop(invalid_idx)
-
     n_candidates = len(candidates)
     n_invalid = len(invalid_idx)
 
@@ -276,6 +274,8 @@ def write_structural_prior_CV(
             f"(possibly due to a different rdkit version). "
             f"Examples: {examples}"
         )
+
+    gen = gen.drop(invalid_idx)
 
     inputs = {"model": gen.assign(source="model")}
 
