@@ -19,7 +19,7 @@ ERR_PPM = config['err_ppm']
 
 # runtime divisor for sample_molecules_RNN
 if MODEL_PARAMS["model_type"] == "RNN":
-    SAMPLE_DIVISOR = 10000
+    SAMPLE_DIVISOR = 15000
 else:
     SAMPLE_DIVISOR = 3000
 
