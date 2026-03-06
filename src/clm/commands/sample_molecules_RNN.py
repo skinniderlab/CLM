@@ -87,6 +87,11 @@ def add_args(parser):
         help="Add descriptor in hidden and cell state",
     )
     parser.add_argument(
+        "--preload_condition",
+        action="store_true",
+        help="Add descriptor in hidden and cell state",
+    )
+    parser.add_argument(
         "--heldout_file",
         type=str,
         nargs="+",
@@ -137,6 +142,7 @@ def sample_molecules_RNN(
     conditional_dec=False,
     conditional_dec_l=True,
     conditional_h=False,
+    preload_condition=False,
     heldout_file=None,
 ):
     os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
@@ -294,20 +300,29 @@ def sample_molecules_RNN(
 
     # Erase file contents if there are any
     open(output_file, "w").close()
-
+    if preload_condition and  heldout_dataset is not None:
+        preload_descriptors=torch.stack([_[1] for _ in heldout_dataset], 0).to(model.device)
+        while len(preload_descriptors)<batch_size:
+            preload_descriptors=torch.cat([preload_descriptors, preload_descriptors], 0)
+        preload_descriptors=torch.stack([preload_descriptors, preload_descriptors], 0)
+        
     with tqdm(total=sample_mols) as pbar:
         for i in range(0, sample_mols, batch_size):
             n_sequences = min(batch_size, sample_mols - i)
             descriptors = None
             if heldout_dataset is not None:
                 # Use modulo to cycle through heldout_dataset
-                descriptor_indices = [
-                    (i + j) % len(heldout_dataset) for j in range(n_sequences)
-                ]
-                descriptors = torch.stack(
-                    [heldout_dataset[idx][1] for idx in descriptor_indices]
-                )
-                descriptors = descriptors.to(model.device)
+                if preload_condition:
+                    s=i%len(heldout_dataset)
+                    descriptors=preload_descriptors[s:s+n_sequences]
+                else:
+                    descriptor_indices = [
+                        (i + j) % len(heldout_dataset) for j in range(n_sequences)
+                    ]
+                    descriptors = torch.stack(
+                        [heldout_dataset[idx][1] for idx in descriptor_indices]
+                    )
+                    descriptors = descriptors.to(model.device)
             sampled_smiles, losses = model.sample(
                 descriptors=descriptors,
                 n_sequences=n_sequences,
@@ -349,4 +364,5 @@ def main(args):
         conditional_dec_l=args.conditional_dec_l,
         conditional_h=args.conditional_h,
         heldout_file=args.heldout_file,
+        preload_condition=args.preload_condition
     )
