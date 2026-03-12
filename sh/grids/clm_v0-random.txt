@@ -1,0 +1,9 @@
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k130491-seed1.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k130491-seed2.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k130491-seed3.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k300000-seed1.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k300000-seed2.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k300000-seed3.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k35558-seed1.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k35558-seed2.json
+/Genomics/argo/users/sa7998/git/CLM/sh/grids/clm_v0-random/bsm-2m-gt_0_5-random-k35558-seed3.json
