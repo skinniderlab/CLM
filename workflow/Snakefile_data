@@ -281,7 +281,7 @@ rule tabulate_molecules:
         known_smiles_file = PATHS['known_smiles_file'],
         invalid_smiles_file = PATHS['invalid_smiles_file']
     resources:
-        mem_mb=64000,
+        mem_mb=256000 if MODEL_PARAMS["sample_mols"] > 10_000_000 else 64000,
         runtime=2880 if MODEL_PARAMS["sample_mols"] > 10_000_000 else 1400,
     shell:
         'clm tabulate_molecules '
