@@ -33,6 +33,20 @@ PARAM_SPACE = {
         f"{INPUT_DIR}/bsm-2m-gt_0_5-pca_grid.csv",
         f"{INPUT_DIR}/bsm-2m-gt_0_5-umap_grid.csv",
 
+        f"{INPUT_DIR}/bsm-2m-gt_0_5-butina-follow-neighbor-0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_5-butina-follow-neighbor-0.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_5-butina-follow-neighbor-1.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_5-butina-keep-0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_5-butina-keep-0.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_5-butina-keep-1.csv",
+
+        f"{INPUT_DIR}/bsm-2m-gt_0_8-butina-follow-neighbor-0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_8-butina-follow-neighbor-0.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_8-butina-follow-neighbor-1.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_8-butina-keep-0_5.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_8-butina-keep-0.csv",
+        f"{INPUT_DIR}/bsm-2m-gt_0_8-butina-keep-1.csv",
+
         f"{INPUT_DIR}/bsm-2m-gt_0_8-random.csv",
         f"{INPUT_DIR}/bsm-2m-gt_0_8-bitbirch_random.csv",
         f"{INPUT_DIR}/bsm-2m-gt_0_8-fps_maxmin.csv",
