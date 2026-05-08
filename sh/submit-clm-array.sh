@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # example:
-# bash sh/submit-clm-array.sh sh/grids/clm_v0.txt
+# bash sh/submit-clm-array.sh sh/grids/clm_v0-downsample.txt
 
 # Don't forget to remove lock files if rerunning an incomplete job
 # rm -rf .snakemake/locks
+# rm -rf .snakemake/tmp.*
 
 set -euo pipefail
 cd ~/git/CLM
