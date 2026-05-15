@@ -13,6 +13,9 @@ from clm.models import (
     StructuredStateSpaceSequenceModel,
     H3Model,
     HyenaModel,
+    MambaModel,
+    Mamba2Model,
+    Mamba3Model,
 )
 from clm.functions import load_dataset, write_to_csv_file
 
@@ -200,7 +203,15 @@ def sample_molecules_RNN(
 
     heldout_dataset = None
 
-    if model_type in ["S4", "H3", "Hyena", "Transformer"]:
+    if model_type in [
+        "S4",
+        "H3",
+        "Hyena",
+        "Transformer",
+        "Mamba",
+        "Mamba2",
+        "Mamba3",
+    ]:
         assert (
             not conditional
         ), f"Conditional mode is not implemented for {model_type} model"
@@ -239,6 +250,40 @@ def sample_molecules_RNN(
             order=order,
             filter_order=filter_order,
             n_order_heads=n_order_heads,
+            dropout=dropout,
+            max_len=max_len,
+        )
+    elif model_type == "Mamba":
+        model = MambaModel(
+            vocabulary=vocab,
+            n_layers=n_layers,
+            model_dim=embedding_size,
+            d_state=state_dim,
+            d_conv=4,
+            expand=2,
+            dropout=dropout,
+            max_len=max_len,
+        )
+    elif model_type == "Mamba2":
+        model = Mamba2Model(
+            vocabulary=vocab,
+            n_layers=n_layers,
+            model_dim=embedding_size,
+            d_state=state_dim,
+            d_conv=4,
+            expand=2,
+            dropout=dropout,
+            max_len=max_len,
+        )
+    elif model_type == "Mamba3":
+        model = Mamba3Model(
+            vocabulary=vocab,
+            n_layers=n_layers,
+            model_dim=embedding_size,
+            d_state=state_dim,
+            headdim=32,
+            expand=2,
+            chunk_size=64,
             dropout=dropout,
             max_len=max_len,
         )

@@ -13,6 +13,9 @@ from clm.models import (
     StructuredStateSpaceSequenceModel,
     H3Model,
     HyenaModel,
+    MambaModel,
+    Mamba2Model,
+    Mamba3Model,
 )
 from clm.loggers import EarlyStopping, track_loss, print_update
 from clm.functions import write_smiles, load_dataset
@@ -294,6 +297,41 @@ def train_models_RNN(
             order=order,
             filter_order=filter_order,
             n_order_heads=n_order_heads,
+            dropout=dropout,
+            max_len=max_len,
+        )
+
+    elif model_type == "Mamba":
+        model = MambaModel(
+            vocabulary=dataset.vocabulary,
+            n_layers=n_layers,
+            model_dim=embedding_size,
+            d_state=state_dim,
+            d_conv=4,
+            expand=2,
+            dropout=dropout,
+            max_len=max_len,
+        )
+    elif model_type == "Mamba2":
+        model = Mamba2Model(
+            vocabulary=dataset.vocabulary,
+            n_layers=n_layers,
+            model_dim=embedding_size,
+            d_state=state_dim,
+            d_conv=4,
+            expand=2,
+            dropout=dropout,
+            max_len=max_len,
+        )
+    elif model_type == "Mamba3":
+        model = Mamba3Model(
+            vocabulary=dataset.vocabulary,
+            n_layers=n_layers,
+            model_dim=embedding_size,
+            d_state=state_dim,
+            headdim=32,
+            expand=2,
+            chunk_size=64,
             dropout=dropout,
             max_len=max_len,
         )

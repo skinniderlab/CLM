@@ -21,6 +21,747 @@ except ImportError:
 
 from s4dd.module_library.sequence_model import SequenceModel
 
+from mamba_ssm.modules.mamba_simple import Mamba
+from mamba_ssm.modules.mamba2 import Mamba2
+from mamba3 import Mamba3Config, Mamba3LMHeadModel
+
+
+class Mamba3Model(nn.Module):
+    """CLM wrapper around the Mamba-3 SSM architecture.
+
+    Mamba-3 improves over Mamba-2 with:
+      - Trapezoidal discretization (second-order accurate state update)
+      - Complex-valued SSM via data-dependent RoPE (enables state-tracking)
+      - MIMO formulation (better hardware utilisation during decode)
+      - QK-Normalisation on B, C projections
+      - Learnable BC bias (head-specific, channel-wise, init to ones)
+      - No short convolution (trapezoidal + bias removes the need for conv1d)
+
+    The backbone is imported from the mamba3-minimal package:
+      https://github.com/GuptaVishu2002/mamba3-minimal/tree/fix-packaging
+
+    Architecture follows Llama design:
+      Embedding → N × [RMSNorm → Mamba3 → RMSNorm → SwiGLU] → RMSNorm → LM Head
+
+    Interface mirrors MambaModel / Mamba2Model so it is a drop-in replacement
+    inside train_models_RNN.py.
+    """
+
+    def __init__(
+        self,
+        vocabulary,
+        n_layers: int = 4,
+        model_dim: int = 256,
+        d_state: int = 128,
+        headdim: int = 64,
+        expand: int = 2,
+        chunk_size: int = 64,
+        dropout: float = 0.1,
+        max_len: int = 250,
+        use_mimo: bool = False,
+        mimo_rank: int = 4,
+        **kwargs,
+    ):
+        super(Mamba3Model, self).__init__()
+
+        # Device
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        # Vocabulary
+        self.vocabulary = vocabulary
+        self.vocabulary_size = len(self.vocabulary)
+        self.padding_idx = self.vocabulary.dictionary["<PAD>"]
+
+        # Hyperparameters (stored for repr / checkpointing)
+        self.model_dim = model_dim
+        self.d_state = d_state
+        self.headdim = headdim
+        self.expand = expand
+        self.chunk_size = chunk_size
+        self.n_layers = n_layers
+        self.dropout_p = dropout
+        self.max_len = max_len
+        self.use_mimo = use_mimo
+        self.mimo_rank = mimo_rank
+
+        # ── Validate headdim ──────────────────────────────────────────────────
+        d_inner = expand * model_dim
+        assert (
+            d_inner % headdim == 0
+        ), f"d_inner (expand*model_dim = {d_inner}) must be divisible by headdim ({headdim})"
+        assert (
+            d_state % 2 == 0
+        ), f"d_state ({d_state}) must be even for complex SSM / RoPE pairing"
+
+        # ── Build Mamba-3 backbone ────────────────────────────────────────────
+        # Mamba3LMHeadModel has its own embedding + LM head, but we replace the
+        # embedding with one that uses our vocabulary's padding index, and we
+        # repurpose the LM head as our output projection.
+        cfg = Mamba3Config(
+            d_model=model_dim,
+            n_layer=n_layers,
+            d_state=d_state,
+            expand=expand,
+            headdim=headdim,
+            chunk_size=chunk_size,
+            vocab_size=self.vocabulary_size,
+            pad_vocab_size_multiple=1,  # exact size; no padding of vocab
+            use_mimo=use_mimo,
+            mimo_rank=mimo_rank,
+        )
+        self.backbone = Mamba3LMHeadModel(cfg, device=str(self.device))
+
+        # Replace the embedding so we can honour padding_idx.
+        # (Mamba3LMHeadModel does not expose padding_idx in its Embedding.)
+        self.backbone.backbone.embedding = nn.Embedding(
+            self.vocabulary_size,
+            model_dim,
+            padding_idx=self.padding_idx,
+        ).to(self.device)
+
+        # Re-tie lm_head weights to the new embedding.
+        self.backbone.lm_head.weight = self.backbone.backbone.embedding.weight
+
+        # ── Dropout (applied after each residual block output) ───────────────
+        self.dropout_layer = nn.Dropout(dropout)
+
+        # ── Loss function ─────────────────────────────────────────────────────
+        self.loss_fn = nn.CrossEntropyLoss(
+            ignore_index=self.padding_idx, reduction="none"
+        )
+
+        # Move everything to the target device
+        if torch.cuda.is_available():
+            self.cuda()
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # forward
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Parameters
+        ----------
+        x : (batch_size, seq_len) — token indices
+
+        Returns
+        -------
+        logits : (batch_size, seq_len, vocab_size)
+        """
+        # Mamba3LMHeadModel.forward returns (logits, inference_caches).
+        # We only need logits during training / teacher-forced evaluation.
+        logits, _ = self.backbone(x, h=None)
+        return logits
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # loss
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def loss(self, batch) -> torch.Tensor:
+        """Compute mean cross-entropy loss over non-padding positions.
+
+        The collate function returns tensors in (seq_len, batch_size) layout;
+        we transpose to (batch_size, seq_len) and call .contiguous() to avoid
+        stride errors inside the Mamba-3 SSD kernels.
+        """
+        padded, lengths, _ = batch
+
+        padded = padded.to(self.device)
+
+        # Collate returns (seq_len, batch_size) → (batch_size, seq_len).
+        # .contiguous() is required: transpose() only swaps strides without
+        # copying memory, which can cause stride-alignment errors in SSD.
+        padded = padded.transpose(0, 1).contiguous()
+
+        # Mamba-3's chunked SSD requires seqlen to be a multiple of chunk_size.
+        # Pad the sequence dimension if necessary.
+        seq_len = padded.shape[1]
+        remainder = seq_len % self.chunk_size
+        if remainder != 0:
+            pad_len = self.chunk_size - remainder
+            padded = F.pad(padded, (0, pad_len), value=self.padding_idx)
+
+        logits = self(padded)  # (batch_size, padded_seq_len, vocab_size)
+
+        # Teacher-forced targets: shift right by one position.
+        # Trim both to the original (unpadded) seq_len - 1 so padding tokens
+        # never contribute to the loss (CrossEntropyLoss ignores padding_idx).
+        targets = padded[:, 1:seq_len]  # (batch_size, seq_len - 1)
+        logits = logits[
+            :, : seq_len - 1, :
+        ]  # (batch_size, seq_len - 1, vocab_size)
+
+        loss = 0.0
+        for char_idx in range(targets.shape[1]):
+            loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
+
+        return loss.mean()
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # sample
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def sample(
+        self,
+        *,
+        n_sequences: int,
+        max_len: int = None,
+        return_smiles: bool = True,
+        return_losses: bool = False,
+        descriptors=None,
+    ):
+        """Auto-regressively sample sequences from the model.
+
+        Uses the Mamba-3 inference cache (constant-time per step) so generation
+        is efficient: the full prefix is processed in one chunked forward pass,
+        then each new token is decoded in O(1) via the recurrent step path.
+
+        Parameters
+        ----------
+        n_sequences : int
+            Number of sequences to generate in parallel.
+        max_len : int, optional
+            Maximum generation length (defaults to self.max_len).
+        return_smiles : bool
+            Decode token sequences to SMILES strings if True.
+        return_losses : bool
+            Also return per-sequence NLL losses if True.
+        descriptors : ignored
+            Accepted for API compatibility with ConditionalRNN; has no effect.
+        """
+        if max_len is None:
+            max_len = self.max_len
+
+        was_training = self.training
+        self.eval()
+
+        start_token = self.vocabulary.dictionary["SOS"]
+        stop_token = self.vocabulary.dictionary["EOS"]
+        pad_token = self.vocabulary.dictionary["<PAD>"]
+
+        loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
+        finished = torch.zeros(
+            n_sequences, dtype=torch.uint8, device=self.device
+        )
+        log_probs = torch.zeros(n_sequences, device=self.device)
+        sequences: list[torch.Tensor] = []
+
+        with torch.no_grad():
+            # ── Initialise with SOS token; build inference cache ──────────────
+            # Shape: (n_sequences, 1)
+            current_ids = torch.full(
+                (n_sequences, 1),
+                start_token,
+                dtype=torch.long,
+                device=self.device,
+            )
+
+            # Process the SOS token through the chunked (non-inference) path to
+            # initialise the per-layer caches h.  chunk_size=1 is allowed because
+            # seqlen=1 is divisible by 1; alternatively we pad to chunk_size.
+            # We pad to chunk_size and then use only the last logit.
+            pad_len = self.chunk_size - 1
+            if pad_len > 0:
+                padded_ids = F.pad(current_ids, (pad_len, 0), value=pad_token)
+            else:
+                padded_ids = current_ids
+
+            logits_init, h = self.backbone(padded_ids, h=None)
+            # h is now a list of InferenceCache, one per layer.
+
+            # Get the logit for the position corresponding to SOS (last position).
+            logits_step = logits_init[:, -1, :]  # (n_sequences, vocab_size)
+            logits_step = torch.clamp(logits_step, min=-1e4, max=1e4)
+            prob = F.softmax(logits_step, dim=-1)
+
+            if not (torch.isnan(prob).any() or torch.isinf(prob).any()):
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+
+                log_prob = F.log_softmax(logits_step, dim=-1)
+                losses = loss_fn(log_prob, outputs)
+                losses[finished.bool()] = 0
+                log_probs += losses
+
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+            else:
+                # Fallback: emit SOS again (will be cleaned up by vocabulary.decode)
+                outputs = current_ids.squeeze(1)
+
+            # ── Auto-regressive generation using the recurrent step ───────────
+            for _ in range(max_len - 1):
+                if torch.prod(finished) == 1:
+                    break
+
+                # Shape: (n_sequences, 1) — the previously sampled token
+                next_ids = outputs.unsqueeze(1)
+
+                # Constant-time step via inference cache
+                logits_step, h = self.backbone(next_ids, h=h)
+                logits_step = logits_step[:, -1, :]  # (n_sequences, vocab_size)
+                logits_step = torch.clamp(logits_step, min=-1e4, max=1e4)
+                prob = F.softmax(logits_step, dim=-1)
+
+                if torch.isnan(prob).any() or torch.isinf(prob).any():
+                    break
+
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+
+                log_prob = F.log_softmax(logits_step, dim=-1)
+                losses = loss_fn(log_prob, outputs)
+                losses[finished.bool()] = 0
+                log_probs += losses
+
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+
+        seqs = (
+            torch.cat(sequences, dim=1)
+            if sequences
+            else torch.full(
+                (n_sequences, 1),
+                start_token,
+                dtype=torch.long,
+                device=self.device,
+            )
+        )
+
+        if return_smiles:
+            smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+        else:
+            smiles = sequences
+
+        if was_training:
+            self.train()
+
+        if return_losses:
+            return smiles, log_probs.detach().cpu().numpy()
+        return smiles
+
+
+class MambaModel(nn.Module):
+    def __init__(
+        self,
+        vocabulary,
+        n_layers=4,
+        model_dim=256,
+        d_state=16,
+        d_conv=4,
+        expand=2,
+        dropout=0.1,
+        max_len=250,
+        **kwargs,
+    ):
+        super(MambaModel, self).__init__()
+
+        # Device
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        # Vocabulary
+        self.vocabulary = vocabulary
+        self.vocabulary_size = len(self.vocabulary)
+        self.padding_idx = self.vocabulary.dictionary["<PAD>"]
+
+        # Hyperparameters
+        self.model_dim = model_dim
+        self.d_state = d_state
+        self.d_conv = d_conv
+        self.n_layers = n_layers
+        self.expand = expand
+        self.dropout = dropout
+        self.max_len = max_len
+
+        # Model components
+        padding_t = torch.tensor(self.padding_idx).to(self.device)
+        self.embedding = nn.Embedding(
+            self.vocabulary_size, self.model_dim, padding_idx=padding_t
+        )
+
+        # Stack of Mamba layers
+        # This module uses roughly 3 * expand * d_model^2 parameters
+        self.mamba_layers = nn.ModuleList(
+            [
+                Mamba(
+                    d_model=self.model_dim,  # Model dimension d_model
+                    d_state=self.d_state,  # SSM state expansion factor
+                    d_conv=self.d_conv,  # Local convolution width
+                    expand=self.expand,  # Block expansion factor
+                )
+                for _ in range(n_layers)
+            ]
+        )
+
+        # Layer norm for each layer
+        self.layer_norms = nn.ModuleList(
+            [nn.LayerNorm(self.model_dim) for _ in range(n_layers)]
+        )
+
+        # Dropout
+        self.dropout_layer = nn.Dropout(dropout)
+
+        # Output projection
+        self.output_embedding = nn.Linear(self.model_dim, self.vocabulary_size)
+
+        # Loss function
+        self.loss_fn = nn.CrossEntropyLoss(
+            ignore_index=self.padding_idx, reduction="none"
+        )
+
+        # Final layer norm applied after all Mamba layers, before output projection
+        self.final_norm = nn.LayerNorm(self.model_dim)
+
+        # Move to GPU
+        if torch.cuda.is_available():
+            self.cuda()
+
+    def forward(self, x):
+        """
+        x: (batch_size, seq_len)
+        Returns: (batch_size, seq_len, vocab_size)
+        """
+        batch_size, seq_len = x.size()
+
+        # Embed
+        x = self.embedding(x)  # (batch_size, seq_len, model_dim)
+
+        # Apply Mamba layers with residual connections
+        for mamba_layer, layer_norm in zip(self.mamba_layers, self.layer_norms):
+            residual = x
+            x = layer_norm(x)
+            x = mamba_layer(x)  # Mamba expects (B, L, D)
+            x = self.dropout_layer(x)
+            x = x + residual
+
+        x = self.final_norm(x)
+        # Project to vocabulary
+        logits = self.output_embedding(x)  # (batch_size, seq_len, vocab_size)
+
+        return logits
+
+    def loss(self, batch):
+        """Compute loss for a batch."""
+        # Collate always returns (padded, lengths, descriptors); descriptor ignored here
+        padded, lengths, _ = batch
+
+        padded = padded.to(self.device)
+
+        # Collate always returns (seq_len, batch_size); transpose to (batch_size, seq_len)
+        padded = padded.transpose(0, 1)
+
+        logits = self(padded)
+
+        targets = padded[:, 1:]
+        logits = logits[:, :-1, :]
+
+        loss = 0.0
+        actual_len = min(logits.shape[1], targets.shape[1])
+        for char_idx in range(actual_len):
+            loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
+
+        return loss.mean()
+
+    def sample(
+        self,
+        *,
+        n_sequences,
+        max_len=None,
+        return_smiles=True,
+        return_losses=False,
+        descriptors=None,
+    ):
+        if max_len is None:
+            max_len = self.max_len
+
+        was_training = self.training
+        self.eval()
+
+        start_token = self.vocabulary.dictionary["SOS"]
+        stop_token = self.vocabulary.dictionary["EOS"]
+        pad_token = self.vocabulary.dictionary["<PAD>"]
+
+        inputs = (
+            torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+        )
+        loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
+        finished = torch.zeros(n_sequences).byte().to(self.device)
+        log_probs = torch.zeros(n_sequences).to(self.device)
+        sequences = []
+
+        with torch.no_grad():
+            for step in range(max_len):
+                if step == 0:
+                    current_seq = inputs.unsqueeze(1)
+                else:
+                    seq_list = [inputs.unsqueeze(1)] + sequences
+                    current_seq = torch.cat(seq_list, dim=1)
+
+                logits = self(current_seq)[:, -1, :]
+                logits = torch.clamp(logits, min=-1e4, max=1e4)
+                prob = F.softmax(logits, dim=-1)
+
+                if torch.isnan(prob).any() or torch.isinf(prob).any():
+                    break
+
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+
+                log_prob = F.log_softmax(logits, dim=-1)
+                losses = loss_fn(log_prob, outputs)
+                losses[finished.bool()] = 0
+                log_probs += losses
+
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+                if torch.prod(finished) == 1:
+                    break
+
+        # ← added empty-sequence fallback, matches H3/Hyena/S4
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.empty(n_sequences, 1, dtype=torch.long)
+            .fill_(start_token)
+            .to(self.device)
+        )
+
+        if return_smiles:
+            smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+        else:
+            smiles = sequences
+
+        if was_training:
+            self.train()
+
+        if return_losses:
+            return smiles, log_probs.detach().cpu().numpy()
+        else:
+            return smiles
+
+
+class Mamba2Model(nn.Module):
+    def __init__(
+        self,
+        vocabulary,
+        n_layers=4,
+        model_dim=256,
+        d_state=64,
+        d_conv=4,
+        expand=2,
+        dropout=0.1,
+        max_len=250,
+        **kwargs,
+    ):
+        super(Mamba2Model, self).__init__()
+
+        # Device
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+
+        # Vocabulary
+        self.vocabulary = vocabulary
+        self.vocabulary_size = len(self.vocabulary)
+        self.padding_idx = self.vocabulary.dictionary["<PAD>"]
+
+        # Hyperparameters
+        self.model_dim = model_dim
+        self.d_state = d_state
+        self.d_conv = d_conv
+        self.n_layers = n_layers
+        self.expand = expand
+        self.dropout = dropout
+        self.max_len = max_len
+
+        # Model components
+        padding_t = torch.tensor(self.padding_idx).to(self.device)
+        self.embedding = nn.Embedding(
+            self.vocabulary_size, self.model_dim, padding_idx=padding_t
+        )
+
+        # Stack of Mamba2 layers
+        # causal_conv1d_cuda requires d_in_proj % 8 == 0, where:
+        #   d_in_proj = 2*expand*d_model + 2*d_state + nheads
+        #   nheads    = (expand*d_model) // headdim
+        # Find the largest headdim (power-of-2) that satisfies this.
+        d_inner = int(self.expand * self.model_dim)
+        _headdim = None
+        for hd in [64, 32, 16, 8]:
+            if d_inner % hd != 0:
+                continue
+            nheads_candidate = d_inner // hd
+            if (2 * d_inner + 2 * self.d_state + nheads_candidate) % 8 == 0:
+                _headdim = hd
+                break
+        if _headdim is None:
+            raise ValueError(
+                f"No valid headdim found for model_dim={self.model_dim}, "
+                f"expand={self.expand}, d_state={self.d_state}. "
+                f"Ensure (2*expand*d_model + 2*d_state + nheads) is divisible by 8."
+            )
+        self.mamba2_layers = nn.ModuleList(
+            [
+                Mamba2(
+                    d_model=self.model_dim,  # Model dimension d_model
+                    d_state=self.d_state,  # SSM state expansion factor, typically 64 or 128
+                    d_conv=self.d_conv,  # Local convolution width
+                    expand=self.expand,  # Block expansion factor
+                    headdim=_headdim,
+                )
+                for _ in range(n_layers)
+            ]
+        )
+
+        # Layer norm for each layer
+        self.layer_norms = nn.ModuleList(
+            [nn.LayerNorm(self.model_dim) for _ in range(n_layers)]
+        )
+
+        # Dropout
+        self.dropout_layer = nn.Dropout(dropout)
+
+        # Output projection
+        self.output_embedding = nn.Linear(self.model_dim, self.vocabulary_size)
+
+        # Loss function
+        self.loss_fn = nn.CrossEntropyLoss(
+            ignore_index=self.padding_idx, reduction="none"
+        )
+
+        # Final layer norm applied after all Mamba2 layers, before output projection
+        self.final_norm = nn.LayerNorm(self.model_dim)
+
+        # Move to GPU
+        if torch.cuda.is_available():
+            self.cuda()
+
+    def forward(self, x):
+        """
+        x: (batch_size, seq_len)
+        Returns: (batch_size, seq_len, vocab_size)
+        """
+        batch_size, seq_len = x.size()
+
+        # Embed
+        x = self.embedding(x)  # (batch_size, seq_len, model_dim)
+
+        # Apply Mamba2 layers with residual connections
+        for mamba2_layer, layer_norm in zip(
+            self.mamba2_layers, self.layer_norms
+        ):
+            residual = x
+            x = layer_norm(x)
+            x = mamba2_layer(x)  # Mamba2 expects (B, L, D)
+            x = self.dropout_layer(x)
+            x = x + residual
+
+        x = self.final_norm(x)
+        # Project to vocabulary
+        logits = self.output_embedding(x)  # (batch_size, seq_len, vocab_size)
+
+        return logits
+
+    def loss(self, batch):
+        # Collate always returns (padded, lengths, descriptors); descriptor ignored here
+        padded, lengths, _ = batch
+
+        padded = padded.to(self.device)
+
+        # Collate returns (seq_len, batch_size); transpose to (batch_size, seq_len).
+        # .contiguous() is critical: transpose() only swaps strides without copying
+        # memory. Non-standard strides propagate through nn.Embedding into
+        # causal_conv1d, causing: RuntimeError: strides must be multiples of 8
+        padded = padded.transpose(0, 1).contiguous()
+
+        logits = self(padded)
+
+        targets = padded[:, 1:]
+        logits = logits[:, :-1, :]
+
+        loss = 0.0
+        actual_len = min(logits.shape[1], targets.shape[1])
+        for char_idx in range(actual_len):
+            loss += self.loss_fn(logits[:, char_idx, :], targets[:, char_idx])
+
+        return loss.mean()
+
+    def sample(
+        self,
+        *,
+        n_sequences,
+        max_len=None,
+        return_smiles=True,
+        return_losses=False,
+        descriptors=None,
+    ):
+        if max_len is None:
+            max_len = self.max_len
+
+        was_training = self.training
+        self.eval()
+
+        start_token = self.vocabulary.dictionary["SOS"]
+        stop_token = self.vocabulary.dictionary["EOS"]
+        pad_token = self.vocabulary.dictionary["<PAD>"]
+
+        inputs = (
+            torch.empty(n_sequences).fill_(start_token).long().to(self.device)
+        )
+        loss_fn = nn.NLLLoss(reduction="none", ignore_index=pad_token)
+        finished = torch.zeros(n_sequences).byte().to(self.device)
+        log_probs = torch.zeros(n_sequences).to(self.device)
+        sequences = []
+
+        with torch.no_grad():
+            for step in range(max_len):
+                if step == 0:
+                    current_seq = inputs.unsqueeze(1)
+                else:
+                    seq_list = [inputs.unsqueeze(1)] + sequences
+                    current_seq = torch.cat(seq_list, dim=1)
+
+                logits = self(current_seq)[:, -1, :]
+                logits = torch.clamp(logits, min=-1e4, max=1e4)
+                prob = F.softmax(logits, dim=-1)
+
+                if torch.isnan(prob).any() or torch.isinf(prob).any():
+                    break
+
+                outputs = torch.multinomial(prob, num_samples=1).squeeze(1)
+                sequences.append(outputs.view(-1, 1))
+
+                log_prob = F.log_softmax(logits, dim=-1)
+                losses = loss_fn(log_prob, outputs)
+                losses[finished.bool()] = 0
+                log_probs += losses
+
+                finished = torch.ge(finished + (outputs == stop_token), 1)
+                if torch.prod(finished) == 1:
+                    break
+
+        seqs = (
+            torch.cat(sequences, 1)
+            if sequences
+            else torch.empty(n_sequences, 1, dtype=torch.long)
+            .fill_(start_token)
+            .to(self.device)
+        )
+
+        if return_smiles:
+            smiles = [self.vocabulary.decode(seq.cpu().numpy()) for seq in seqs]
+        else:
+            smiles = sequences
+
+        if was_training:
+            self.train()
+
+        if return_losses:
+            return smiles, log_probs.detach().cpu().numpy()
+        else:
+            return smiles
+
 
 class H3Model(nn.Module):
     def __init__(
