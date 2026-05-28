@@ -22,7 +22,7 @@ else
 fi
 unset __conda_setup
 
-conda activate clm
+conda activate clm_pr289
 
 echo "hub job started on $(hostname)"
 date
@@ -48,7 +48,7 @@ echo "using config: $GRID_CONFIG"
 snakemake all \
   --snakefile workflow/Snakefile \
   --configfile "$GRID_CONFIG" \
-  --jobs 2 \
+  --jobs 1 \
   --slurm --default-resources slurm_partition=main,skinniderlab \
   --latency-wait 60 \
   --rerun-incomplete \

@@ -1,0 +1,506 @@
+# configfile: "config/config.yaml"
+threads: 1
+# -----------------------------------------------------------------------------
+# Setup
+# -----------------------------------------------------------------------------
+PATHS = config['paths']
+DATASET = os.path.splitext(os.path.basename(config["paths"]["dataset"]))[0]
+REPRESENTATIONS = config["representations"]
+REPRESENTATIONS_NO_SELFIES = [r for r in REPRESENTATIONS if r!="SELFIES"]
+TRAIN_SEEDS = config["train_seeds"]
+SAMPLE_SEEDS = config["sample_seeds"]
+FOLDS = config["folds"]
+ENUM_FACTORS = config["enum_factors"]
+METRICS = config["metrics"]
+OUTPUT_DIR = config['paths']['output_dir']
+MODEL_PARAMS = config['model_params']
+MIN_FREQS = config['structural_prior_min_freq']
+ERR_PPM = config['err_ppm']
+
+# runtime divisor for sample_molecules_RNN
+if MODEL_PARAMS["model_type"] == "RNN":
+    SAMPLE_DIVISOR = 10000
+else:
+    SAMPLE_DIVISOR = 1500
+
+shell.executable("/bin/bash")
+
+wildcard_constraints:
+    dataset=DATASET,
+    repr='|'.join(REPRESENTATIONS),
+    fold='\d+',
+    train_seed='\d+',
+    sample_seed='\d+'
+
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Rules
+# -----------------------------------------------------------------------------
+# rule data:
+#     input:
+#         ranks_file_formula=expand(config['paths']['formula_ranks_file'],
+#             output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, fold=range(FOLDS)),
+#         ranks_file_structure=expand(config['paths']['cv_ranks_file'],
+#             output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, fold=range(FOLDS)),
+#         tc_file=expand(config['paths']['cv_tc_file'],
+#             output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, fold=range(FOLDS)),
+#         ranks_file_overall = expand(config['paths']['overall_ranks_file'],
+#             output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS, dataset=DATASET, repr=REPRESENTATIONS_NO_SELFIES, min_freq=MIN_FREQS, metric=METRICS),
+#         tc_file_overall = expand(config['paths']['overall_tc_file'],
+#             output_dir=OUTPUT_DIR, enum_factor=ENUM_FACTORS,dataset=DATASET,repr=REPRESENTATIONS,min_freq=MIN_FREQS,metric=METRICS)
+
+# debug: print rule all targets
+TARGETS = expand(
+            PATHS['tabulate_molecules_output'],
+            output_dir=OUTPUT_DIR,
+            enum_factor=ENUM_FACTORS,
+            dataset=DATASET,
+            repr=REPRESENTATIONS_NO_SELFIES,
+            fold=range(FOLDS),
+            train_seed=TRAIN_SEEDS,
+            sample_seed=SAMPLE_SEEDS
+        )
+
+print("\n[DEBUG] rule all targets:")
+for t in TARGETS:
+    print("  ", t)
+print(f"[DEBUG] total targets: {len(TARGETS)}\n")
+
+
+rule all:
+    input:
+        TARGETS
+
+rule preprocess:
+    """
+    Read input smiles and save a file of "canonical" smiles. This entails:
+    Conversion to molecules using rdkit, removing light fragments,
+    neutralizing charges, filtering for valid elements
+    removing rare tokens in the smiles vocabulary.
+    """
+    input:
+        PATHS["dataset"]
+    output:
+        PATHS['preprocess_output']
+    resources:
+        mem_mb=96000 if config.get("dataset_n_rows", 0) > 1_000_000 else 32000,
+        runtime=90 if config.get("dataset_n_rows", 0) > 1_000_000 else 30,
+    shell:
+        'clm preprocess '
+        '--seed {config[random_seed]} '
+        '--input-file {input} '
+        '--output-file {output} '
+        '--min-heavy-atoms {config[preprocess][min_heavy_atoms]} '
+        '--valid-atoms {config[preprocess][valid_atoms]} '
+        '--max-input-smiles {config[max_input_smiles]} '
+        f'{"--keep_duplicates" if config["preprocess"]["keep_duplicates"] else ""}'
+        f'{"--no-neutralise " if not config["preprocess"]["neutralise"] else ""} '
+        f'{"--remove-rare " if config["preprocess"]["remove_rare"] else ""} '
+
+
+rule create_training_sets:
+    """
+    Split input smiles into separate files for train/test folds,
+    while also creating a .vocabulary files for the training smiles.
+    Optionally takes in a min_tc parameter to only consider smiles that
+    are similar to a randomly selected seed smile.
+    """
+    input:
+        config['paths']['preprocess_output']
+    output:
+        train_file = PATHS['train_file'],
+        vocab_file = PATHS['vocab_file'],
+        train0_file = PATHS['train0_file'],
+        test0_file = PATHS['test0_file']
+    resources:
+        mem_mb=128000 if config.get("dataset_n_rows", 0) > 1_000_000 else 64000,
+        runtime=540 if config.get("dataset_n_rows", 0) > 1_000_000 else 360,
+    shell:
+        'clm create_training_sets '
+        '--input-file {input} '
+        '--train0-file {output.train0_file} '
+        '--train-file {output.train_file} '
+        '--vocab-file {output.vocab_file} '
+        '--test0-file {output.test0_file} '
+        '--enum-factor {wildcards.enum_factor} '
+        '--folds {FOLDS} '
+        '--which-fold {wildcards.fold} '
+        '--representation {wildcards.repr} '
+        '--min-tc {config[min_tc]} '
+        '--seed {config[random_seed]} '
+        '--max-input-smiles {config[max_input_smiles]} '
+
+
+# rule add_carbon:
+#     """
+#     Insert character 'C' - representing carbon atom - at a random point in
+#     training set SMILES.
+#     """
+#     input:
+#         train0_file = PATHS['train0_file']
+#     output:
+#         carbon_file = PATHS['carbon_file']
+#     resources:
+#         mem_mb=96000,
+#         runtime=720,
+#     shell:
+#         'clm add_carbon '
+#         '--input_file {input.train0_file} '
+#         '--output_file {output.carbon_file} '
+#         '--seed {config[random_seed]} '
+
+# rule collapse_train_test_data:
+#     """
+#     Generate single files for training and testing smiles respectively, out
+#     of all the folds we generated in the `create_training_sets` step. This
+#     would of course only be valuable to do if --enum-factor for the
+#     `create_training_sets` was > 0, otherwise we might as well use the output
+#     file from `preprocess` in both cases.
+#     """
+#     input:
+#         train_file = expand(PATHS['train0_file'], fold=range(FOLDS), allow_missing=True),
+#         test_file = expand(PATHS['test0_file'], fold=range(FOLDS), allow_missing=True),
+#         carbon_file = expand(PATHS['carbon_file'], fold=range(FOLDS), allow_missing=True)
+#     output:
+#         train_file = PATHS['train_all_file'],
+#         test_file = PATHS['test_all_file'],
+#         carbon_file = PATHS['carbon_all_file']
+#     resources:
+#         mem_mb=64000,
+#         runtime=180,
+#     shell:
+#         # Read input files, sort them, remove duplicates and write them out
+#         'clm collapse_files --seed {config[random_seed]} --input_files {input.train_file} --output_file {output.train_file} --has_header && '
+#         'clm collapse_files --seed {config[random_seed]} --input_files {input.test_file} --output_file {output.test_file} --has_header && '
+#         'clm collapse_files --seed {config[random_seed]} --input_files {input.carbon_file} --output_file {output.carbon_file} --has_header '
+
+
+rule train_models_RNN:
+    """
+    Train |seed| RNN models on an input fold.
+    Each training fold is internally split into train/validation split of 0.9.
+    Write out the model file and loss file. Optionally sample a small set of
+    smiles and write them out to `smiles_file`.
+    """
+    input:
+        input_file = PATHS['train_file'],
+        vocab_file = PATHS['vocab_file']
+    output:
+        model_file=PATHS['model_file'],
+        loss_file=PATHS['loss_file']
+    resources:
+        mem_mb=64000,
+        runtime=1400,
+        slurm_extra="--gres=gpu:1"
+    shell:
+        'clm train_models_RNN '
+        '--representation {wildcards.repr} '
+        '--seed {wildcards.train_seed} '
+        '--model_type {MODEL_PARAMS[model_type]} '
+        '--rnn_type {MODEL_PARAMS[rnn_type]} '
+        '--embedding_size {MODEL_PARAMS[embedding_size]} '
+        '--hidden_size {MODEL_PARAMS[hidden_size]} '
+        '--n_layers {MODEL_PARAMS[n_layers]} '
+        '--n_blocks {MODEL_PARAMS[n_blocks]} '
+        '--state_dim {MODEL_PARAMS[state_dim]} '
+        '--n_ssm {MODEL_PARAMS[n_ssm]} '
+        '--n_heads {MODEL_PARAMS[n_heads]} '
+        '--head_dim {MODEL_PARAMS[head_dim]} '
+        '--n_order_heads {MODEL_PARAMS[n_order_heads]} '
+        '--exp_factor {MODEL_PARAMS[exp_factor]} '
+        f'{"--bias" if MODEL_PARAMS["bias"] else ""} '
+        f'{"--use_fast_fftconv" if MODEL_PARAMS["use_fast_fftconv"] else ""} '
+        '--measure {MODEL_PARAMS[measure]} '
+        '--mode {MODEL_PARAMS[mode]} '
+        '--lr {MODEL_PARAMS[lr]} '
+        '--order {MODEL_PARAMS[order]} '
+        '--filter_order {MODEL_PARAMS[filter_order]} '
+        '--dropout {MODEL_PARAMS[dropout]} '
+        '--batch_size {MODEL_PARAMS[batch_size]} '
+        '--max_len {MODEL_PARAMS[max_len]} '
+        '--learning_rate {MODEL_PARAMS[learning_rate]} '
+        '--max_epochs {MODEL_PARAMS[max_epochs]} '
+        '--patience {MODEL_PARAMS[patience]} '
+        '--log_every_steps {MODEL_PARAMS[log_every_steps]} '
+        '--log_every_epochs {MODEL_PARAMS[log_every_epochs]} '
+        '--sample_mols {MODEL_PARAMS[sample_mols]} '
+        '--input_file {input.input_file} '
+        '--vocab_file {input.vocab_file} '
+        '--model_file {output.model_file} '
+        '--loss_file {output.loss_file} '
+        f'{"--conditional" if config["model_params"]["conditional"]["enabled"] else ""} '
+        f'{"--conditional_emb" if config["model_params"]["conditional"]["emb"] else ""} '
+        f'{"--conditional_emb_l" if config["model_params"]["conditional"]["emb_l"] else ""} '
+        f'{"--conditional_dec" if config["model_params"]["conditional"]["dec"] else ""} '
+        f'{"--conditional_dec_l" if config["model_params"]["conditional"]["dec_l"] else ""} '
+        f'{"--conditional_h" if config["model_params"]["conditional"]["h"] else ""} '
+
+rule sample_molecules_RNN:
+    """
+    Sample `sample_mols` smiles from a trained model and fold, and save to
+    `output_file`.
+    """
+    input:
+        model_file = PATHS['model_file'],
+        vocab_file = PATHS['vocab_file'],
+        heldout_file = PATHS['test0_file']
+    output:
+        output_file = PATHS['input_file']
+    resources:
+        mem_mb=12000,
+        runtime=15+MODEL_PARAMS["sample_mols"] // SAMPLE_DIVISOR,
+        slurm_extra="--gres=gpu:1"
+    shell:
+        'clm sample_molecules_RNN '
+        '--representation {wildcards.repr} '
+        '--seed {wildcards.sample_seed} '
+        '--model_type {MODEL_PARAMS[model_type]} '
+        '--rnn_type {MODEL_PARAMS[rnn_type]} '
+        '--embedding_size {MODEL_PARAMS[embedding_size]} '
+        '--hidden_size {MODEL_PARAMS[hidden_size]} '
+        '--n_layers {MODEL_PARAMS[n_layers]} '
+        '--n_blocks {MODEL_PARAMS[n_blocks]} '
+        '--state_dim {MODEL_PARAMS[state_dim]} '
+        '--n_ssm {MODEL_PARAMS[n_ssm]} '
+        '--n_heads {MODEL_PARAMS[n_heads]} '
+        '--head_dim {MODEL_PARAMS[head_dim]} '
+        '--n_order_heads {MODEL_PARAMS[n_order_heads]} '
+        '--exp_factor {MODEL_PARAMS[exp_factor]} '
+        f'{"--bias" if MODEL_PARAMS["bias"] else ""} '
+        f'{"--use_fast_fftconv" if MODEL_PARAMS["use_fast_fftconv"] else ""} '
+        '--measure {MODEL_PARAMS[measure]} '
+        '--mode {MODEL_PARAMS[mode]} '
+        '--lr {MODEL_PARAMS[lr]} '
+        '--order {MODEL_PARAMS[order]} '
+        '--filter_order {MODEL_PARAMS[filter_order]} '
+        '--dropout {MODEL_PARAMS[dropout]} '
+        '--batch_size {MODEL_PARAMS[batch_size]} '
+        '--max_len {MODEL_PARAMS[max_len]} '
+        '--sample_mols {MODEL_PARAMS[sample_mols]} '
+        '--vocab_file {input.vocab_file} '
+        '--model_file {input.model_file} '
+        '--output_file {output.output_file} '
+        f'{"--conditional" if config["model_params"]["conditional"]["enabled"] else ""} '
+        f'{"--conditional_emb" if config["model_params"]["conditional"]["emb"] else ""} '
+        f'{"--conditional_emb_l" if config["model_params"]["conditional"]["emb_l"] else ""} '
+        f'{"--conditional_dec" if config["model_params"]["conditional"]["dec"] else ""} '
+        f'{"--conditional_dec_l" if config["model_params"]["conditional"]["dec_l"] else ""} '
+        f'{"--conditional_h" if config["model_params"]["conditional"]["h"] else ""} '
+        "--heldout_file {input.heldout_file} "
+
+rule tabulate_molecules:
+    """
+    For sampled smiles from a model and a fold, add mass, formula and sampling
+    frequency. Filter out smiles that are found in `train_file`, based on a
+    comparison of InchiKeys.
+    """
+    input:
+        input_file = PATHS['input_file'],
+        train_file = PATHS['train0_file']
+    output:
+        output_file=PATHS['tabulate_molecules_output'],
+        known_smiles_file = PATHS['known_smiles_file'],
+        invalid_smiles_file = PATHS['invalid_smiles_file']
+    resources:
+        mem_mb=256000 if MODEL_PARAMS["sample_mols"] > 10_000_000 else 64000,
+        runtime=2880 if MODEL_PARAMS["sample_mols"] > 10_000_000 else 1400,
+    shell:
+        'clm tabulate_molecules '
+        '--seed {config[random_seed]} '
+        '--input_file {input.input_file} '
+        '--train_file {input.train_file} '
+        '--representation {wildcards.repr} '
+        '--output_file {output.output_file} '
+
+
+rule collect_tabulated_molecules:
+    """
+    Aggregate sampled smiles from all samples obtained in a fold, adding
+    sampling frequency in the process.
+    """
+    input:
+        input_files=expand(PATHS['tabulate_molecules_output'], train_seed=TRAIN_SEEDS, sample_seed=SAMPLE_SEEDS, allow_missing=True),
+        known_smiles_file = expand(PATHS['known_smiles_file'], train_seed=TRAIN_SEEDS, sample_seed=SAMPLE_SEEDS, allow_missing=True),
+        invalid_smiles_file = expand(PATHS['invalid_smiles_file'], train_seed=TRAIN_SEEDS, sample_seed=SAMPLE_SEEDS, allow_missing=True)
+    output:
+        output_file=PATHS['collect_tabulated_output'],
+        known_smiles_file=PATHS['collect_known_smiles'],
+        invalid_smiles_file=PATHS['collect_invalid_smiles']
+    resources:
+        mem_mb=128000,
+        runtime=15+MODEL_PARAMS["sample_mols"]//1000000,
+    shell:
+        'clm collect_tabulated_molecules '
+        '--seed {config[random_seed]} '
+        '--input_files {input.input_files} '
+        '--output_file {output.output_file} '
+        '--known_smiles {input.known_smiles_file} '
+        '--invalid_smiles {input.invalid_smiles_file} '
+
+
+rule process_tabulated_molecules:
+    """
+    Aggregate sampled smiles across all folds, calculating metrics like
+    average sampling frequency (if metric=freq-avg), freq-sum etc.
+    Smiles found in training data (i.e. in `cv_file`) are not counted towards
+    the aggregated metric.
+
+    `output_file` has the same format as the one produced by
+    `collect_tabulated_molecules` (<smile>, <mass>, <formula>, <size>),
+    but now `size` has a different interpretation than simply the frequency
+    of occurrence.
+    """
+    input:
+        input_file=expand(PATHS['collect_tabulated_output'], fold=range(FOLDS), allow_missing=True),
+        cv_file=expand(PATHS['train0_file'], fold=range(FOLDS), allow_missing=True)
+    output:
+        output_file=PATHS['process_tabulated_output']
+    resources:
+        mem_mb=256000,
+        runtime=15+MODEL_PARAMS["sample_mols"]//100000,
+    shell:
+        'clm process_tabulated_molecules '
+        '--seed {config[random_seed]} '
+        '--input_file {input.input_file} '
+        '--cv_file {input.cv_file} '
+        '--output_file {output.output_file} '
+        '--summary_fn {wildcards.metric} '
+        '--min_freq {wildcards.min_freq}'
+
+
+# rule write_structural_prior_CV:
+#     """
+#     Evaluate test smiles against the trained models, with PubChem as a baseline.
+
+#     For each fold, for each smile in the test dataset, generate statistics for
+#     the occurrence of the test smile in each of the 3 "models":
+#       <trained_smiles>/<sampled_smiles>/PubChem.
+
+#     For each of the 3 "models", keep track of smiles that fall within some
+#     tolerance of the true test-smile molecular weight. When sorted by decreasing
+#     sampling frequency, the rank at which we find the "correct" smile
+#     (in terms of a match in the smile string), gives us the
+#     "rank" of each test smile. Lower ranks indicate a better model.
+
+#     This output is written to `ranks_file`.
+
+#     For the <sampled_smiles> model, the fingerprint similarity value is
+#     calculated wrt a molecule that is sampled less frequently but still falls
+#     within a short molecular-mass range of it.
+#     ("The molecules nominated by the structural prior were dramatically more
+#     similar to the unidentified NPS than either baseline").
+
+#     Fingerprint similarity values are written out to `tc_file`.
+#     """
+#     input:
+#         train_file = PATHS['train0_file'],
+#         test_file = PATHS['test0_file'],
+#         pubchem_file = PATHS['pubchem_tsv_file'],
+#         sample_file = PATHS['collect_tabulated_output'],
+#         carbon_file = PATHS['carbon_file']
+#     output:
+#         ranks_file = PATHS['cv_ranks_file'],
+#         tc_file = PATHS['cv_tc_file']
+#     resources:
+#         mem_mb=128000,
+#         runtime=15+MODEL_PARAMS["sample_mols"]//10000,
+#     shell:
+#         'clm write_structural_prior_CV '
+#         '--ranks_file {output.ranks_file} '
+#         '--tc_file {output.tc_file} '
+#         '--train_file {input.train_file} '
+#         '--test_file {input.test_file} '
+#         '--pubchem_file {input.pubchem_file} '
+#         '--sample_file {input.sample_file} '
+#         '--err_ppm {ERR_PPM} '
+#         '--seed {config[random_seed]} '
+#         '--carbon_file {input.carbon_file} '
+#         '--top_n 30 '
+
+# rule write_formula_prior_CV:
+#     """
+#     NOTE: Analogous to `write_structural_prior_CV`, but "correctness" is based
+#     on a matching formula, not a matching smile. Read on for full details.
+
+#     For each fold, for each smile in the test dataset, generate statistics for
+#     the occurrence of the test smile in each of the 3 "models":
+#       <trained_smiles>/<sampled_smiles>/PubChem.
+
+#     For each of the 3 "models", keep track of smiles that fall within some
+#     tolerance of the true test-smile molecular weight. When sorted by decreasing
+#     sampling frequency, the rank at which we find the "correct" smile
+#     (in terms of the correct formula), gives us the
+#     "rank" of each test smile. Lower ranks indicate a better model.
+
+#     This output is written to `ranks_file`.
+#     """
+#     input:
+#         train_file = PATHS['train0_file'],
+#         test_file = PATHS['test0_file'],
+#         pubchem_file = PATHS['pubchem_tsv_file'],
+#         sample_file = PATHS['collect_tabulated_output']
+#     output:
+#         ranks_file = PATHS['formula_ranks_file']
+#     resources:
+#         mem_mb=128000,
+#         runtime=15+MODEL_PARAMS["sample_mols"]//10000,
+#     shell:
+#         'clm write_formula_prior_CV '
+#         '--ranks_file {output.ranks_file} '
+#         '--train_file {input.train_file} '
+#         '--test_file {input.test_file} '
+#         '--pubchem_file {input.pubchem_file} '
+#         '--sample_file {input.sample_file} '
+#         '--err_ppm {ERR_PPM} '
+#         '--seed {config[random_seed]} '
+
+
+# rule write_structural_prior_CV_overall:
+#     """
+#     How good are the "overall" samplings from all models (across all folds)?
+
+#     For each smile in the test dataset, generate statistics for
+#     the occurrence of the test smile in each of the 3 "models":
+#       <trained_smiles>/<sampled_smiles>/PubChem.
+
+#     For each of the 3 "models", keep track of smiles that fall within some
+#     tolerance of the true test-smile molecular weight. When sorted by decreasing
+#     sampling volume (frequency average or frequency count etc., across all
+#     samplings made across all folds), the rank at which we find the "correct"
+#     smile (in terms of a match in the smile string), gives us the
+#     "rank" of each test smile. Lower ranks indicate a better model.
+
+#     This output is written to `ranks_file`.
+
+#     Fingerprint similarity values are written out to `tc_file`.
+#     """
+#     input:
+#         train_file = PATHS['train_all_file'],
+#         test_file = PATHS['test_all_file'],
+#         pubchem_file = PATHS['pubchem_tsv_file'],
+#         carbon_file = PATHS['carbon_all_file'],
+#         sample_file = PATHS['process_tabulated_output'],
+#         cv_ranks_files=expand(PATHS['cv_ranks_file'], fold=range(FOLDS), allow_missing=True),
+#         cv_tc_files=expand(PATHS['cv_tc_file'], fold=range(FOLDS), allow_missing=True)
+#     output:
+#         ranks_file = PATHS['overall_ranks_file'],
+#         tc_file = PATHS['overall_tc_file']
+#     resources:
+#         cpus_per_task=8,
+#         mem_mb=256000,
+#         runtime=15+MODEL_PARAMS["sample_mols"]//5000,
+#     shell:
+#         'clm write_structural_prior_CV '
+#         '--ranks_file {output.ranks_file} '
+#         '--tc_file {output.tc_file} '
+#         '--train_file {input.train_file} '
+#         '--test_file {input.test_file} '
+#         '--pubchem_file {input.pubchem_file} '
+#         '--sample_file {input.sample_file} '
+#         '--err_ppm {ERR_PPM} '
+#         '--seed {config[random_seed]} '
+#         '--carbon_file {input.carbon_file} '
+#         '--cv_ranks_files {input.cv_ranks_files} '
+#         '--cv_tc_files {input.cv_tc_files} '
+#         '--top_n 30 '

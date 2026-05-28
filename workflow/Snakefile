@@ -47,7 +47,7 @@ wildcard_constraints:
 #             enum_factor=ENUM_FACTORS)
 
 
-include: "Snakefile_data"
+include: "Snakefile_data_model"
 
 # rule calculate_outcomes:
 #     """
