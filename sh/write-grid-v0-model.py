@@ -100,7 +100,7 @@ for combo in itertools.product(*values):
         continue
 
     # pick max
-    allowed_enums = [max(allowed_enums)]
+    # allowed_enums = [max(allowed_enums)]
 
     # -------------------------
     # copy and replace configs
