@@ -30,7 +30,9 @@ sample_seeds:
 # than those provided in the original dataset.
 enum_factors:
   - 16
+  - 32  
   - 64
+  - 128
   - 256
 
 #  Limits the maximum number of input SMILES to be read from the original dataset. 0 means there's no limit.
